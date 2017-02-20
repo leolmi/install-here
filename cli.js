@@ -15,7 +15,7 @@ var _package = process.argv[2];
 var _target = process.argv[3];
 var _error = null;
 var _temp = '';
-var _root = __dirname;
+var _root = process.cwd();
 var _files = [];
 var _relpath = path.join(INSTALL_HERE_FOLDER,NODE_MODULES_FOLDER,_package);
 var _settings = {};
@@ -42,7 +42,7 @@ function _createTempPath(cb) {
   if (_error) cb();
   console.log('crea il path temporaneo dove installare i file');
 
-  var temp = path.join(__dirname, INSTALL_HERE_FOLDER);
+  var temp = path.join(_root, INSTALL_HERE_FOLDER);
   fs.mkdir(temp, function(err){
     if (err) {
       _error = err;
@@ -58,7 +58,7 @@ function _createTempPath(cb) {
 function _deleteTemp(cb) {
   console.log('elimina il path temporaneo');
   if (_error) cb();
-  var temp = path.join(__dirname, INSTALL_HERE_FOLDER);
+  var temp = path.join(_root, INSTALL_HERE_FOLDER);
   rimraf(temp, _handleErr(cb));
 }
 
