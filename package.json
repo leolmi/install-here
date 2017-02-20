@@ -20,6 +20,10 @@
     "email": "leo.olmi@gmail.com",
     "url": "http://..."
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leolmi/install-here.git"
+  },
   "files": [
     "cli.js",
     "util.js"
