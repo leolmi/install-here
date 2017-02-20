@@ -22,7 +22,7 @@
   },
   "files": [
     "cli.js",
-    "utils.js"
+    "util.js"
   ],
   "engines": {
     "node": ">=0.10.0"
