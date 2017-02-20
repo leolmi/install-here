@@ -1,0 +1,30 @@
+{
+  "name": "install-here",
+  "version": "1.0.0",
+  "description": "Install package on folder",
+  "homepage": "https://github.com/leolmi/install-here",
+  "license": "MIT",
+  "main": "cli.js",
+  "keywords": [
+    "install",
+    "package",
+    "node",
+    "util"
+  ],
+  "author": {
+    "name": "Leonardo Olmi <leo.olmi@gmail.com>",
+    "email": "leo.olmi@gmail.com",
+    "url": "http://..."
+  },
+  "files": [
+    "cli.js",
+    "utils.js"
+  ],
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "dependencies": {
+    "lodash": "^4.17.4",
+    "rimraf": "^2.6.0"
+  }
+}
