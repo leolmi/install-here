@@ -32,16 +32,14 @@ function _init(cb) {
   _temp = '';
   _files = [];
   if (fs.existsSync('./install-here.json')) _settings = require('./install-here.json')||{};
-
   console.log('package: %s,  target: %s', _package, _target);
   cb();
 }
 
-// crea il path temporaneo dove installare i file
+// creates temporary path
 function _createTempPath(cb) {
   if (_error) cb();
-  console.log('crea il path temporaneo dove installare i file');
-
+  console.log('creates temporary path');
   var temp = path.join(_root, INSTALL_HERE_FOLDER);
   fs.mkdir(temp, function(err){
     if (err) {
@@ -54,18 +52,17 @@ function _createTempPath(cb) {
   });
 }
 
-// elimina il path temporaneo
+// remove temporary path
 function _deleteTemp(cb) {
-  console.log('elimina il path temporaneo');
+  console.log('remove temporary path');
   if (_error) cb();
   var temp = path.join(_root, INSTALL_HERE_FOLDER);
   rimraf(temp, _handleErr(cb));
 }
 
-// installa il pacchetto
-// temp + ./node_modules/{package}
+// install package
 function _install(cb) {
-  console.log('installa il pacchetto');
+  console.log('install package');
   if (_error) cb();
   var process = cp.exec('npm install '+_package,{cwd: _temp+'/'}, function(err, out, stderr){
     if (err) _error = err;
@@ -75,7 +72,7 @@ function _install(cb) {
   process.on('error', _handleErr(cb));
 }
 
-// Verifica l'esistenza di ogni directory che costituisce il path
+// check the path
 function _checkPathX(relfolder) {
   var parts = relfolder.split(path.sep);
   var checked = _root;
@@ -88,17 +85,15 @@ function _checkPathX(relfolder) {
   } while (index < parts.length);
 }
 
-// verifica il path del file
+// check the file path
 function _checkPath(f) {
   var folder = path.dirname(f);
   var relfolder = folder.slice(_root.length+1);
-  console.log('CHECK PATH:  folder="' + folder + '"    relfolder="'+relfolder+'"');
-  console.log('RELATIVE FOLDER: ' + f + '\n\t  >>>> "' + relfolder + '"');
   if (relfolder)
     _checkPathX(relfolder)
 }
 
-// verifica dai settings se il file è da escludere
+// check file ignore
 function _ignore(f) {
   var ignore = (_settings.ignore || '').split(';');
   var info = path.parse(f);
@@ -106,7 +101,7 @@ function _ignore(f) {
     ignore.indexOf(info.base) > -1;
 }
 
-// aggiorna il singolo file
+// updates file
 function _replaceFile(f) {
   if (_error) return;
   var nf = f.replace(_relpath + path.sep, '');
@@ -115,8 +110,6 @@ function _replaceFile(f) {
     return;
   }
   console.log('replace del file: ' + nf + '\t >> ' + f);
-
-  //verifica il path del file
   _checkPath(nf);
 
   if (fs.existsSync(nf)) {
@@ -137,9 +130,9 @@ function _allFiles(list, folder) {
   });
 }
 
-// effettua il replace dei file con quelli presenti
+// updates files
 function _replace(cb) {
-  console.log('effettua il replace dei file con quelli presenti');
+  console.log('updates files');
   if (_error) cb();
   try {
     _allFiles(_files, path.join(_temp, _package));
@@ -150,7 +143,6 @@ function _replace(cb) {
   }
 }
 
-
 u.compose()
   .use(_init)
   .use(_deleteTemp)
@@ -160,9 +152,9 @@ u.compose()
   .use(_deleteTemp)
   .run(function() {
     if (_error) {
-      console.log('Terminato con errori');
+      console.log('Done with errors');
       throw _error;
     } else {
-      console.log('Done %d files updates.', _files.length)
+      console.log('Done: %d files updates.', _files.length)
     }
   });
