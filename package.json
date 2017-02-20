@@ -5,6 +5,10 @@
   "homepage": "https://github.com/leolmi/install-here",
   "license": "MIT",
   "main": "cli.js",
+  "preferGlobal": true,
+  "bin": {
+    "install-here": "cli.js"
+  },
   "keywords": [
     "install",
     "package",
