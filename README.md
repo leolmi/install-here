@@ -21,16 +21,19 @@ Options can be defined using file
 install-here.json
 ```
 saved on working directory
+
 ####ignore
 ```
 "ignore": "*.yml;package.json;favicon.ico;*.jpg"
 ```
 Every file match with ignore filter will be skipped.
+
 ####ignoreOverwrite
 ```
 "ignoreOverwrite": "*.json"
 ```
 Every existing file match with ignoreOverwrite filter will be skipped.
+
 ####checkVersion
 ```
 "checkVersion": true
