@@ -14,13 +14,17 @@ var INSTALL_HERE_CONFIG = 'install-here.json';
 
 // npm install-here package path
 var _package = process.argv[2];
+var _package_version = null;
 var _target = process.argv[3];
 var _error = null;
 var _exit = null;
+var _force = false;
 var _temp = '';
 var _root = process.cwd();
 var _files = [];
+var _dependecies = [];
 var _counter = 0;
+var _counterDep = 0;
 var _relpath = path.join(INSTALL_HERE_FOLDER,NODE_MODULES_FOLDER,_package);
 var _settings = {};
 var settings = function() {
@@ -45,13 +49,22 @@ function _init(cb) {
   _error = null;
   _temp = '';
   _files = [];
+  _dependecies = [];
   _counter = 0;
+  _package_version = null;
   var cnfpath = path.join(_root, INSTALL_HERE_CONFIG);
   _settings = (fs.existsSync(cnfpath)) ? require(cnfpath)||new settings() : new settings();
   cb();
 }
 
 function _checkOptions(cb) {
+  switch(_target) {
+    case '-f':
+    case '--force':
+      _force = true;
+      _target = null;
+      break;
+  }
   switch(_package) {
     case '-v':
     case '--version':
@@ -59,6 +72,33 @@ function _checkOptions(cb) {
       break;
     default:
       console.log('package: %s,  target: %s', _package, _target||'current directory');
+  }
+  cb();
+}
+
+// retrieve remote package version
+function _packageVersion(cb) {
+  if (_isExit()) return cb();
+  var process = cp.exec('npm view ' + _package + ' version', function (err, out, stderr) {
+    if (out) {
+      _package_version = out.trim();
+      console.log('remote version: %s', _package_version);
+    }
+    cb();
+  });
+}
+
+// check the package version
+function _checkVersion(cb) {
+  if (_isExit() || _force) return cb();
+  if (_settings.checkVersion && _package_version) {
+    var exsinfopath = path.join(_root, 'package.json');
+    if (fs.existsSync(exsinfopath)) {
+      var xinfo = require(exsinfopath);
+      if (xinfo.name == _package && xinfo.version == _package_version) {
+        _exit = ['package "%s" is on version.', _package];
+      }
+    }
   }
   cb();
 }
@@ -81,6 +121,7 @@ function _createTempPath(cb) {
 
 // remove temporary path
 function _deleteTemp(cb) {
+  //return cb();  //TODO: togliere!!!!!!!
   var temp = path.join(_root, INSTALL_HERE_FOLDER);
   if (fs.existsSync(temp)) {
     console.log('remove temporary path');
@@ -97,27 +138,9 @@ function _install(cb) {
   var process = cp.exec('npm install '+_package,{cwd: _temp+'/'}, function(err, out, stderr){
     if (err) _error = err;
     if (out) console.log('install output:\n'+out)
-  });
-  process.on('error', _handleErr(cb));
-  process.on('exit', function() {
     setTimeout(cb, _settings.timeout||100);
   });
-}
-
-// check the package version
-function _checkVersion(cb) {
-  if (_settings.checkVersion) {
-    var pkginfopath = path.join(_temp, _package, 'package.json');
-    var exsinfopath = path.join(_root, 'package.json');
-    if (fs.existsSync(pkginfopath) && fs.existsSync(exsinfopath)) {
-      var xinfo = require(exsinfopath);
-      var ninfo = require(pkginfopath);
-      if (ninfo.name == xinfo.name && ninfo.version == xinfo.version) {
-        _exit = ['package "%s" is on version.', xinfo.name];
-      }
-    }
-  }
-  cb();
+  process.on('error', _handleErr(cb));
 }
 
 // check the path
@@ -150,7 +173,7 @@ function _ignore(f, i) {
 }
 
 // updates file
-function _replaceFile(f) {
+function _replacePkgFile(f) {
   var nf = f.replace(_relpath + path.sep, '');
   if (_ignore(nf, _settings.ignore)) {
     console.log('Skip file: '+nf);
@@ -170,11 +193,24 @@ function _replaceFile(f) {
   _counter++;
 }
 
-function _allFiles(list, folder) {
+function _replaceDepFile(f) {
+  var nf = path.join(_root, path.join(NODE_MODULES_FOLDER, path.relative(_temp, f)));
+  _checkPath(nf);
+  if (fs.existsSync(nf)) {
+    fs.unlinkSync(nf);
+  }
+  console.log('replace file: ' + nf);
+  var data = fs.readFileSync(f);
+  fs.writeFileSync(nf, data);
+  _counterDep++;
+}
+
+function _allFiles(list, folder, ignore) {
   fs.readdirSync(folder).forEach(function(f) {
     var fn = path.join(folder, f);
     if (fs.statSync(fn).isDirectory()) {
-      _allFiles(list, fn);
+      if (!ignore || fn.indexOf(ignore)<0)
+        _allFiles(list, fn);
     } else {
       list.push(fn);
     }
@@ -184,10 +220,23 @@ function _allFiles(list, folder) {
 // updates files
 function _replace(cb) {
   if (_isExit()) return cb();
-  console.log('updates files');
+  console.log('updates package files');
   try {
     _allFiles(_files, path.join(_temp, _package));
-    _files.forEach(_replaceFile);
+    _files.forEach(_replacePkgFile);
+    cb();
+  } catch(err) {
+    _handleErr(cb)(err);
+  }
+}
+
+// updates dependencies
+function _replaceDep(cb) {
+  if (_isExit()) return cb();
+  console.log('updates dependencies');
+  try {
+    _allFiles(_dependecies, path.join(_temp), path.join(_temp, _package));
+    _dependecies.forEach(_replaceDepFile);
     cb();
   } catch(err) {
     _handleErr(cb)(err);
@@ -206,11 +255,13 @@ function _saveSettings(cb) {
 u.compose()
   .use(_init)
   .use(_checkOptions)
+  .use(_packageVersion)
+  .use(_checkVersion)
   .use(_deleteTemp)
   .use(_createTempPath)
   .use(_install)
-  .use(_checkVersion)
   .use(_replace)
+  .use(_replaceDep)
   .use(_deleteTemp)
   .use(_saveSettings)
   .run(function() {
@@ -220,6 +271,6 @@ u.compose()
       console.log('Done with errors');
       throw _error;
     } else {
-      console.log('Done: %d files updates.', _counter)
+      console.log('Done: %d files updates, %d dependencies updates.', _counter, _counterDep);
     }
   });
