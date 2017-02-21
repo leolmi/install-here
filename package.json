@@ -1,7 +1,7 @@
 {
   "name": "install-here",
   "version": "1.0.8",
-  "description": "Install package on folder",
+  "description": "Uses an npm package as updatable application template",
   "homepage": "https://github.com/leolmi/install-here",
   "license": "MIT",
   "main": "cli.js",

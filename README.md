@@ -6,14 +6,15 @@
 $ npm install install-here -g
 ``` 
 
-(beta version)
 install npm package on root:
-You can use one package as a project running 
+You can use a package as a project running 
 ```
 $ install-here <package>
 ```
 package will be downloaded on working directory, not in node_modules, 
 so you can update it simply reinstalling it.
+
+Similar to [yeoman](http://yeoman.io/) but considering the npm packages as templates!
 
 ##Options
 Options can be defined using file
@@ -39,3 +40,17 @@ Every existing file match with ignoreOverwrite filter will be skipped.
 "checkVersion": true
 ```
 Cancel upgrade the package if the version is the same as the remote one.
+
+##Flags
+
+- -v, --version
+retrieve the version
+```
+$ install-here -v
+```
+
+- -f, --force
+force updates all files bypassing version check
+```
+$ install-here <package> -f
+```

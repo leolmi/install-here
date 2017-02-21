@@ -31,7 +31,6 @@ var settings = function() {
   this.ignore = '';
   this.ignoreOverwrite = '';
   this.checkVersion = true;
-  this.timeout = 1000;
 };
 
 function _isExit() {
@@ -54,6 +53,7 @@ function _init(cb) {
   _package_version = null;
   var cnfpath = path.join(_root, INSTALL_HERE_CONFIG);
   _settings = (fs.existsSync(cnfpath)) ? require(cnfpath)||new settings() : new settings();
+  console.log('%s v.%s', info.name, info.version);
   cb();
 }
 
@@ -79,7 +79,7 @@ function _checkOptions(cb) {
 // retrieve remote package version
 function _packageVersion(cb) {
   if (_isExit()) return cb();
-  var process = cp.exec('npm view ' + _package + ' version', function (err, out, stderr) {
+  cp.exec('npm view ' + _package + ' version', function (err, out) {
     if (out) {
       _package_version = out.trim();
       console.log('remote version: %s', _package_version);
@@ -96,7 +96,7 @@ function _checkVersion(cb) {
     if (fs.existsSync(exsinfopath)) {
       var xinfo = require(exsinfopath);
       if (xinfo.name == _package && xinfo.version == _package_version) {
-        _exit = ['package "%s" is on version.', _package];
+        _exit = ['package "%s" is up-to-date.', _package];
       }
     }
   }
@@ -134,10 +134,10 @@ function _deleteTemp(cb) {
 function _install(cb) {
   if (_isExit()) return cb();
   console.log('installing package...');
-  var process = cp.exec('npm install '+_package,{cwd: _temp+'/'}, function(err, out, stderr){
+  var process = cp.exec('npm install '+_package,{cwd: _temp+'/'}, function(err, out){
     if (err) _error = err;
-    if (out) console.log('install output:\n'+out)
-    setTimeout(cb, _settings.timeout||100);
+    if (out) console.log('install output:\n'+out);
+    cb();
   });
   process.on('error', _handleErr(cb));
 }
