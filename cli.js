@@ -121,7 +121,6 @@ function _createTempPath(cb) {
 
 // remove temporary path
 function _deleteTemp(cb) {
-  //return cb();  //TODO: togliere!!!!!!!
   var temp = path.join(_root, INSTALL_HERE_FOLDER);
   if (fs.existsSync(temp)) {
     console.log('remove temporary path');
@@ -199,7 +198,7 @@ function _replaceDepFile(f) {
   if (fs.existsSync(nf)) {
     fs.unlinkSync(nf);
   }
-  console.log('replace file: ' + nf);
+  console.log('replace dependency file: ' + nf);
   var data = fs.readFileSync(f);
   fs.writeFileSync(nf, data);
   _counterDep++;
@@ -233,7 +232,7 @@ function _replace(cb) {
 // updates dependencies
 function _replaceDep(cb) {
   if (_isExit()) return cb();
-  console.log('updates dependencies');
+  console.log('updates dependencies files');
   try {
     _allFiles(_dependecies, path.join(_temp), path.join(_temp, _package));
     _dependecies.forEach(_replaceDepFile);
@@ -271,6 +270,6 @@ u.compose()
       console.log('Done with errors');
       throw _error;
     } else {
-      console.log('Done: %d files updates, %d dependencies updates.', _counter, _counterDep);
+      console.log('Done: \n\t%d package files updates\n\t%d dependencies files updates', _counter, _counterDep);
     }
   });
