@@ -6,19 +6,33 @@ var path = require('path');
 var cp = require('child_process');
 var u = require('./util.js');
 var rimraf = require('rimraf');
+var info = require('./package.json');
 
 var INSTALL_HERE_FOLDER = '.install-here';
 var NODE_MODULES_FOLDER = 'node_modules';
+var INSTALL_HERE_CONFIG = 'install-here.json';
 
 // npm install-here package path
 var _package = process.argv[2];
 var _target = process.argv[3];
 var _error = null;
+var _exit = null;
 var _temp = '';
 var _root = process.cwd();
 var _files = [];
+var _counter = 0;
 var _relpath = path.join(INSTALL_HERE_FOLDER,NODE_MODULES_FOLDER,_package);
 var _settings = {};
+var settings = function() {
+  this.ignore = '';
+  this.ignoreOverwrite = '';
+  this.checkVersion = true;
+  this.timeout = 1000;
+};
+
+function _isExit() {
+  return _exit||_error;
+}
 
 function _handleErr(cb) {
   return function(err) {
@@ -31,14 +45,27 @@ function _init(cb) {
   _error = null;
   _temp = '';
   _files = [];
-  if (fs.existsSync('./install-here.json')) _settings = require('./install-here.json')||{};
-  console.log('package: %s,  target: %s', _package, _target);
+  _counter = 0;
+  var cnfpath = path.join(_root, INSTALL_HERE_CONFIG);
+  _settings = (fs.existsSync(cnfpath)) ? require(cnfpath)||new settings() : new settings();
+  cb();
+}
+
+function _checkOptions(cb) {
+  switch(_package) {
+    case '-v':
+    case '--version':
+      _exit = ['%s v.%s', info.name, info.version];
+      break;
+    default:
+      console.log('package: %s,  target: %s', _package, _target||'current directory');
+  }
   cb();
 }
 
 // creates temporary path
 function _createTempPath(cb) {
-  if (_error) cb();
+  if (_isExit()) return cb();
   console.log('creates temporary path');
   var temp = path.join(_root, INSTALL_HERE_FOLDER);
   fs.mkdir(temp, function(err){
@@ -54,22 +81,43 @@ function _createTempPath(cb) {
 
 // remove temporary path
 function _deleteTemp(cb) {
-  console.log('remove temporary path');
-  if (_error) cb();
   var temp = path.join(_root, INSTALL_HERE_FOLDER);
-  rimraf(temp, _handleErr(cb));
+  if (fs.existsSync(temp)) {
+    console.log('remove temporary path');
+    rimraf(temp, _handleErr(cb));
+  } else {
+    cb();
+  }
 }
 
 // install package
 function _install(cb) {
-  console.log('install package');
-  if (_error) cb();
+  if (_isExit()) return cb();
+  console.log('installing package...');
   var process = cp.exec('npm install '+_package,{cwd: _temp+'/'}, function(err, out, stderr){
     if (err) _error = err;
-    if (out) console.log('Install output:\n'+out)
-    cb();
+    if (out) console.log('install output:\n'+out)
   });
   process.on('error', _handleErr(cb));
+  process.on('exit', function() {
+    setTimeout(cb, _settings.timeout||100);
+  });
+}
+
+// check the package version
+function _checkVersion(cb) {
+  if (_settings.checkVersion) {
+    var pkginfopath = path.join(_temp, _package, 'package.json');
+    var exsinfopath = path.join(_root, 'package.json');
+    if (fs.existsSync(pkginfopath) && fs.existsSync(exsinfopath)) {
+      var xinfo = require(exsinfopath);
+      var ninfo = require(pkginfopath);
+      if (ninfo.name == xinfo.name && ninfo.version == xinfo.version) {
+        _exit = ['package "%s" is on version.', xinfo.name];
+      }
+    }
+  }
+  cb();
 }
 
 // check the path
@@ -94,8 +142,8 @@ function _checkPath(f) {
 }
 
 // check file ignore
-function _ignore(f) {
-  var ignore = (_settings.ignore || '').split(';');
+function _ignore(f, i) {
+  var ignore = (i || '').split(';');
   var info = path.parse(f);
   return ignore.indexOf('*' + info.ext) > -1 ||
     ignore.indexOf(info.base) > -1;
@@ -103,20 +151,23 @@ function _ignore(f) {
 
 // updates file
 function _replaceFile(f) {
-  if (_error) return;
   var nf = f.replace(_relpath + path.sep, '');
-  if (_ignore(nf)) {
+  if (_ignore(nf, _settings.ignore)) {
     console.log('Skip file: '+nf);
     return;
   }
-  console.log('replace del file: ' + nf + '\t >> ' + f);
   _checkPath(nf);
-
   if (fs.existsSync(nf)) {
-    fs.unlinkSync();
+    if (_ignore(nf, _settings.ignoreOverwrite)) {
+      console.log('Skip overwriting file: '+nf);
+      return;
+    }
+    fs.unlinkSync(nf);
   }
+  console.log('replace file: ' + nf);
   var data = fs.readFileSync(f);
   fs.writeFileSync(nf, data);
+  _counter++;
 }
 
 function _allFiles(list, folder) {
@@ -132,8 +183,8 @@ function _allFiles(list, folder) {
 
 // updates files
 function _replace(cb) {
+  if (_isExit()) return cb();
   console.log('updates files');
-  if (_error) cb();
   try {
     _allFiles(_files, path.join(_temp, _package));
     _files.forEach(_replaceFile);
@@ -143,18 +194,32 @@ function _replace(cb) {
   }
 }
 
+function _saveSettings(cb) {
+  var cnfpath = path.join(_root, INSTALL_HERE_CONFIG);
+  if (!fs.existsSync(cnfpath)) {
+    var data = JSON.stringify(_settings, null, 2);
+    fs.writeFileSync(cnfpath, data);
+  }
+  cb();
+}
+
 u.compose()
   .use(_init)
+  .use(_checkOptions)
   .use(_deleteTemp)
   .use(_createTempPath)
   .use(_install)
+  .use(_checkVersion)
   .use(_replace)
   .use(_deleteTemp)
+  .use(_saveSettings)
   .run(function() {
-    if (_error) {
+    if (_exit) {
+      console.log.apply(null, _exit);
+    } else if (_error) {
       console.log('Done with errors');
       throw _error;
     } else {
-      console.log('Done: %d files updates.', _files.length)
+      console.log('Done: %d files updates.', _counter)
     }
   });
