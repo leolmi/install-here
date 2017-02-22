@@ -27,10 +27,16 @@ var _counter = 0;
 var _counterDep = 0;
 var _relpath = path.join(INSTALL_HERE_FOLDER,NODE_MODULES_FOLDER,_package);
 var _settings = {};
-var settings = function() {
+var settings = function(s) {
   this.ignore = '';
   this.ignoreOverwrite = '';
   this.checkVersion = true;
+  if (s) _.extend(this, s);
+  var self = this;
+  this._filters = {
+    ignore: u.getPathFilters(self.ignore),
+    ignoreOverwrite: u.getPathFilters(self.ignoreOverwrite)
+  }
 };
 
 function _isExit() {
@@ -52,7 +58,8 @@ function _init(cb) {
   _counter = 0;
   _package_version = null;
   var cnfpath = path.join(_root, INSTALL_HERE_CONFIG);
-  _settings = (fs.existsSync(cnfpath)) ? require(cnfpath)||new settings() : new settings();
+  var s = (fs.existsSync(cnfpath)) ? require(cnfpath)||{} : {};
+  _settings = new settings(s);
   console.log('%s v.%s', info.name, info.version);
   cb();
 }
@@ -163,24 +170,16 @@ function _checkPath(f) {
     _checkPathX(relfolder)
 }
 
-// check file ignore
-function _ignore(f, i) {
-  var ignore = (i || '').split(';');
-  var info = path.parse(f);
-  return ignore.indexOf('*' + info.ext) > -1 ||
-    ignore.indexOf(info.base) > -1;
-}
-
 // updates file
 function _replacePkgFile(f) {
   var nf = f.replace(_relpath + path.sep, '');
-  if (_ignore(nf, _settings.ignore)) {
+  if (_settings._filters.ignore.check(nf)) {
     console.log('Skip file: '+nf);
     return;
   }
   _checkPath(nf);
   if (fs.existsSync(nf)) {
-    if (_ignore(nf, _settings.ignoreOverwrite)) {
+    if (_settings._filters.ignoreOverwrite.check(nf)) {
       console.log('Skip overwriting file: '+nf);
       return;
     }
@@ -245,7 +244,9 @@ function _replaceDep(cb) {
 function _saveSettings(cb) {
   var cnfpath = path.join(_root, INSTALL_HERE_CONFIG);
   if (!fs.existsSync(cnfpath)) {
-    var data = JSON.stringify(_settings, null, 2);
+    var ser = _.clone(_settings);
+    delete ser._filters;
+    var data = JSON.stringify(ser, null, 2);
     fs.writeFileSync(cnfpath, data);
   }
   cb();
@@ -273,3 +274,26 @@ u.compose()
       console.log('Done: \n\t%d package files updates\n\t%d dependencies files updates', _counter, _counterDep);
     }
   });
+
+
+// var _ = require('lodash');
+// function _test() {
+//   var files = [
+//     'C:\\Sviluppo\\bower_components\\sghereghen\\client\\ciccio.js',
+//     'C:\\Sviluppo\\bower_components\\client\\ciccio.txt',
+//     'C:\\Sviluppo\\frottole\\sghereghen\\client\\popo.js'
+//   ];
+//   var filter = '*/bower_components/**/*.js;*.json;ciccio.txt;bower_components/*.txt';
+//   var fo = u.getPathFilters(filter);
+//   var fdesc = _.map(fo.items, function(fi){
+//     return '\t '+fi.str + '     {'+fi.strTemp+'}  >>>    '+fi.strFilter;
+//   });
+//   console.log('TEST start, filters: \n'+ fdesc.join('\n'));
+//   console.log('filter: \n\t'+ fo.str+'\n\n');
+//   files.forEach(function(f){
+//     var msg = fo.check(f) ? '-      SKIP file: %s' : '+OK: %s';
+//     console.log(msg, f);
+//   });
+// }
+//
+// _test();
