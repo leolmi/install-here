@@ -4,6 +4,7 @@
 var fs = require('fs');
 var path = require('path');
 var cp = require('child_process');
+var _ = require('lodash');
 var u = require('./util.js');
 var rimraf = require('rimraf');
 var info = require('./package.json');
@@ -276,7 +277,6 @@ u.compose()
   });
 
 
-// var _ = require('lodash');
 // function _test() {
 //   var files = [
 //     'C:\\Sviluppo\\bower_components\\sghereghen\\client\\ciccio.js',
