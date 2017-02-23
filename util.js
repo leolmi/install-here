@@ -102,7 +102,9 @@ PathFilterItem.prototype = {
 };
 exports.getPathFilterItem = function(filter) { return new PathFilterItem(filter); }
 
-var PathFilter = function(filter) {
+var PathFilter = function(filter, defaults) {
+  filter = filter || '';
+  if (defaults) filter += ';' + defaults;
   this.str = filter;
   this.items = _.map((filter||'').split(';'), function(f){
     return new PathFilterItem(f);
@@ -117,4 +119,4 @@ PathFilter.prototype = {
   }
 };
 
-exports.getPathFilters = function(filter) { return new PathFilter(filter); }
+exports.getPathFilters = function(filter, defaults) { return new PathFilter(filter, defaults); }

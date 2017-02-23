@@ -31,12 +31,14 @@ var _settings = {};
 var settings = function(s) {
   this.ignore = '';
   this.ignoreOverwrite = '';
+  this.ignorePath = '';
   this.checkVersion = true;
   if (s) _.extend(this, s);
   var self = this;
   this._filters = {
     ignore: u.getPathFilters(self.ignore),
-    ignoreOverwrite: u.getPathFilters(self.ignoreOverwrite)
+    ignoreOverwrite: u.getPathFilters(self.ignoreOverwrite, INSTALL_HERE_CONFIG),
+    ignorePath: u.getPathFilters(self.ignorePath)
   }
 };
 
@@ -152,6 +154,7 @@ function _install(cb) {
 
 // check the path
 function _checkPathX(relfolder) {
+  if (_settings._filters.ignorePath.check(relfolder)) return false;
   var parts = relfolder.split(path.sep);
   var checked = _root;
   var index = 0;
@@ -161,29 +164,30 @@ function _checkPathX(relfolder) {
       fs.mkdirSync(checked);
     index++;
   } while (index < parts.length);
+  return true;
 }
 
 // check the file path
 function _checkPath(f) {
   var folder = path.dirname(f);
   var relfolder = folder.slice(_root.length+1);
-  if (relfolder)
-    _checkPathX(relfolder)
+  return (relfolder) ? _checkPathX(relfolder) : true;
 }
 
 // updates file
 function _replacePkgFile(f) {
   var nf = f.replace(_relpath + path.sep, '');
-  if (_settings._filters.ignore.check(nf)) {
-    console.log('Skip file: '+nf);
-    return;
-  }
+  if (_settings._filters.ignore.check(nf))
+    return console.log('Skip file: '+nf);
+
+  if (!_checkPath(nf))
+    return console.log('Skip writing file: '+nf);
+
   _checkPath(nf);
   if (fs.existsSync(nf)) {
-    if (_settings._filters.ignoreOverwrite.check(nf)) {
-      console.log('Skip overwriting file: '+nf);
-      return;
-    }
+    if (_settings._filters.ignoreOverwrite.check(nf))
+      return console.log('Skip overwriting file: '+nf);
+
     fs.unlinkSync(nf);
   }
   console.log('replace file: ' + nf);
