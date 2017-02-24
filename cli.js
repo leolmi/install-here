@@ -47,7 +47,7 @@ var Package = function(p) {
   var parts = (p||'').split('@');
   this.name = parts[0];
   this.version = parts.length > 1 ? parts[1] : '';
-}
+};
 
 
 function _isExit() {
@@ -73,7 +73,6 @@ function _init(cb) {
   var cnfpath = path.join(_root, INSTALL_HERE_CONFIG);
   var s = (fs.existsSync(cnfpath)) ? require(cnfpath) || {} : {};
   _settings = new Settings(s);
-  console.log('%s v.%s', info.name, info.version);
   cb();
 }
 
@@ -91,7 +90,8 @@ function _checkOptions(cb) {
       _exit = ['%s v.%s', info.name, info.version];
       break;
     default:
-      console.log('package: %s,  target: %s', _package.fullName, _target||'current directory');
+      console.log('%s v.%s', info.name, info.version);
+      console.log('package: %s   >  target: %s', _package.name, _target||'current directory');
   }
   cb();
 }
