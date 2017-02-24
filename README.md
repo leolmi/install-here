@@ -23,34 +23,40 @@ install-here.json
 saved on working directory
 
 - ignore
-string value (es: `"*.yml;package.json;favicon.ico;*.jpg"`).
-Every file match with this [filter](#filename-filters) will be skipped.
+
+    string value (es: `"*.yml;package.json;favicon.ico;*.jpg"`).
+    Every file match with this [filter](#filename-filters) will be skipped.
 
 - ignoreOverwrite
-string value (es: `"*.json"`).
-Every existing file match with this [filter](#filename-filters) will be skipped.
+
+    string value (es: `"*.json"`).
+    Every existing file match with this [filter](#filename-filters) will be skipped.
 
 - ignorePath
-string value (es: `"my/folder/**"`).
-Every file match with this [filter](#filename-filters) will be skipped if path exists.
+
+    string value (es: `"my/folder/**"`).
+    Every file match with this [filter](#filename-filters) will be skipped if path exists.
 
 - checkVersion
-boolean value.
-Cancel upgrade the package if the version is the same as the remote one.
+
+    boolean value.
+    Cancel upgrade the package if the version is the same as the remote one.
 
 ## Flags
 
 - -v, --version
-retrieve the version
-```
-$ install-here -v
-```
+
+    retrieve the version
+    ```
+    $ install-here -v
+    ```
 
 - -f, --force
-force updates all files bypassing version check
-```
-$ install-here <package> -f
-```
+
+    force updates all files bypassing version check
+    ```
+    $ install-here <package> -f
+    ```
 
 ## Filename Filters
 
