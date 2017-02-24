@@ -62,6 +62,7 @@ saved on working directory
 
 File names filters can be write gulp-like syntax:
 
+filter | result
 ------------ | -------------
 `your-file.ext` |  *specific filename*
 `your/path/*.*` | *all files in your path (not in sub folders)*
