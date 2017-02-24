@@ -61,8 +61,8 @@ saved on working directory
 ## Filename Filters
 
 File names filters can be write gulp-like syntax:
-- **`your-file.ext`**:  *specific filename*
-- **`your/path/*.*`**: *all files in your path (not in sub folders)*
-- **`your/path/**/*.json`**: *all .json files in your path and sub folders*
-- **`your/path/**`**: *all files in your path and sub folders*
-- **`your/path/your-file*.*`**: *all files in your path starts with "your-file"*
+- `your-file.ext`|  *specific filename*
+- `your/path/*.*`| *all files in your path (not in sub folders)*
+- `your/path/**/*.json`| *all .json files in your path and sub folders*
+- `your/path/**`| *all files in your path and sub folders*
+- `your/path/your-file*.*`| *all files in your path starts with "your-file"*
