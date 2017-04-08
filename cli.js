@@ -28,12 +28,12 @@ var _temp = '';
 var _root = process.cwd();
 var _files = [];
 var _dependecies = [];
-var _counter = 0;
-var _counterDep = 0;
+// contatori
+var _counters = null;
 var _relpath = '';
 var _settings = {};
 var _options = {};
-var Settings = function(s) {
+var Settings = function(s, o) {
   this.ignore = '';
   this.ignoreOverwrite = '';
   this.ignorePath = '';
@@ -44,7 +44,9 @@ var Settings = function(s) {
     ignore: u.getPathFilters(self.ignore),
     ignoreOverwrite: u.getPathFilters(self.ignoreOverwrite, INSTALL_HERE_CONFIG),
     ignorePath: u.getPathFilters(self.ignorePath)
-  }
+  };
+  this.xpre = this.xpre || o.xpre;
+  this.xpost = this.xpost || o.xpost;
 };
 var Package = function(p) {
   this.fullName = p||'';
@@ -84,13 +86,19 @@ function _logi(m) {
 
 function _init(cb) {
   _options = {
-    version: argv.v||argv.version||argv.ver,
-    force: argv.f||argv.force,
+    version: argv.v || argv.version || argv.ver,
+    force: argv.f || argv.force,
     verbose: argv.verbose,
-    debug: argv.d||argv.debug,
-    test: argv.t||argv.test,
+    debug: argv.d || argv.debug,
+    test: argv.t || argv.test,
     skipkg: !!argv.skipkg,
-    help: !!argv.h||argv.help
+    help: !!argv.h || argv.help,
+    xpre: argv.xpre,
+    xpost: argv.xpost
+  };
+  _counters = {
+    files: 0,
+    dependencies: 0,
   };
   //TODO: target alternativo alla root d'esecuzione
   _target = ''; //(argv._.length>1)?argv._[1]:null;
@@ -98,12 +106,12 @@ function _init(cb) {
   _temp = '';
   _files = [];
   _dependecies = [];
-  _counter = 0;
-  var name = (argv._.length>0)?argv._[0]:null;
+  var name = (argv._.length > 0) ? argv._[0] : null;
   _package = new Package(name);
   var cnfpath = path.join(_root, INSTALL_HERE_CONFIG);
   var s = (fs.existsSync(cnfpath)) ? require(cnfpath) || {} : {};
-  _settings = new Settings(s);
+  _settings = new Settings(s, _options);
+  _log('settings: '+JSON.stringify(_settings));
   cb();
 }
 
@@ -119,10 +127,10 @@ function _checkOptions(cb) {
       '\t<options>\toptions (optional):\n'+
       '\t\t--version,-v:\tshows version\n'+
       '\t\t--force,-f:\tforce update\n'+
-      '\t\t--verbose:\tshow verbose log\n'+
+      '\t\t--verbose:\tshow the verbose log\n'+
       '\t\t--debug,-d:\tworks in debug mode\n'+
       '\t\t--skipkg:\tskip package.json check\n'+
-      '\t\t--help,-h:\tshows help\n';
+      '\t\t--help,-h:\tshows the help\n';
     _exit = ['%s v.%s\n%s', info.name, info.version, help];
   } else if (_options.version) {
     _exit = ['%s v.%s', info.name, info.version];
@@ -192,6 +200,28 @@ function _checkTest(cb) {
   if (_options.test) _exit = ['test finished.'];
   cb();
 }
+
+function _execAction(cmd, cb) {
+  if (_isExit() || !cmd) return cb();
+  _log(null, 'exec script: '+cmd);
+  var process = cp.exec(cmd, {cwd: _root + '/'}, function (err, out) {
+    if (err) _error = err;
+    if (out) _log('action output:\n' + out);
+    cb();
+  });
+  process.on('error', _handleErr(cb));
+}
+
+function _execPre(cb) {
+  if (_isExit()) return cb();
+  _execAction(_settings.xpre, cb);
+}
+
+function _execPost(cb) {
+  if (_isExit()) return cb();
+  _execAction(_settings.xpost, cb);
+}
+
 
 // creates temporary path
 function _createTempPath(cb) {
@@ -311,7 +341,7 @@ function _replacePkgFile(f) {
   if (ispkj && xdata) data = _managePkg(xdata, data);
   //scrive il nuovo file
   fs.writeFileSync(nf, data);
-  _counter++;
+  _counters.files++;
 }
 
 function _replaceDepFile(f) {
@@ -323,7 +353,7 @@ function _replaceDepFile(f) {
   _log('replace dependency file: ' + nf);
   var data = fs.readFileSync(f);
   fs.writeFileSync(nf, data);
-  _counterDep++;
+  _counters.dependencies++;
 }
 
 function _allFiles(list, folder, ignore) {
@@ -391,6 +421,7 @@ function _saveSettings(cb) {
   cb();
 }
 
+
 u.compose()
   .use(_init)
   .use(_checkInstallHere)
@@ -401,11 +432,13 @@ u.compose()
   .use(_checkTest)
   .use(_deleteTemp)
   .use(_createTempPath)
+  .use(_execPre)
   .use(_install)
   .use(_replace)
   .use(_replaceDep)
   .use(_deleteTemp)
   .use(_saveSettings)
+  .use(_execPost)
   .run(function() {
     if (_exit) {
       console.log.apply(null, _exit);
@@ -418,6 +451,6 @@ u.compose()
       }
     } else {
       console.log('Done: \n\t%s v.%s\n\t%d package files updates\n\t%d dependencies files updates',
-        _package.name, _package.version, _counter, _counterDep);
+        _package.name, _package.version, _counters.files, _counters.dependencies);
     }
   });

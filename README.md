@@ -8,7 +8,7 @@ $ npm install install-here -g
 
 Install npm package in folder you want. Launch this command in the folder 
 ```
-$ install-here <package>
+$ install-here <package> [<options>]
 ```
 package will be downloaded directly in folder, not in node_modules, 
 so you can update it simply reinstalling it (without specify package name):
@@ -46,21 +46,42 @@ saved on working directory
 
     boolean value.
     Cancel upgrade the package if the version is the same as the remote one.
+    
+- **xpre**
+
+    string value (es: `"gulp deploy"`).
+    pre-execution script.
+    
+- **xpost**
+
+    string value (es: `"gulp deploy"`).
+    post-execution script.
+
+    
 
 ## Flags
 
 - -v, --version
 
     retrieve the version
-    ```
-    $ install-here -v
-    ```
 
 - -f, --force
 
     force updates all files bypassing version check
+
+- --verbose
+
+    shows the verbose log
+    
+- -h, --help
+    
+    shows the help
+
+- -xpre, -xpost
+
+    pre/post execution script
     ```
-    $ install-here <package> -f
+    $ install-here <package> --xpost "gulp deploy"
     ```
 
 ## Filename Filters
