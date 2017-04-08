@@ -122,5 +122,5 @@ PathFilter.prototype = {
 exports.getPathFilters = function(filter, defaults) { return new PathFilter(filter, defaults); }
 
 exports.version = function (v) {
-  return v.match(/\d+\.\d+\.\d+.*/g);
+  return ''+(v.match(/\d+\.\d+\.\d+.*/g)||'');
 };
