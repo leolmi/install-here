@@ -1,6 +1,6 @@
 {
   "name": "install-here",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "Use an npm package as updatable application template. Install the package with all dependencies in a specific folder and keep it updated with the same command.",
   "homepage": "https://github.com/leolmi/install-here",
   "license": "MIT",
