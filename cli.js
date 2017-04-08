@@ -89,7 +89,8 @@ function _init(cb) {
     verbose: argv.verbose,
     debug: argv.d||argv.debug,
     test: argv.t||argv.test,
-    skipkg: !!argv.skipkg
+    skipkg: !!argv.skipkg,
+    help: !!argv.h||argv.help
   };
   //TODO: target alternativo alla root d'esecuzione
   _target = ''; //(argv._.length>1)?argv._[1]:null;
@@ -112,7 +113,18 @@ function _checkInstallHere(cb) {
 }
 
 function _checkOptions(cb) {
-  if (_options.version) {
+  if (_options.help) {
+    var help ='\tinstall-here [<package>] [<options>]\n\n'+
+      '\t<package>\tpackage name (optional)\n'+
+      '\t<options>\toptions (optional):\n'+
+      '\t\t--version,-v:\tshows version\n'+
+      '\t\t--force,-f:\tforce update\n'+
+      '\t\t--verbose:\tshow verbose log\n'+
+      '\t\t--debug,-d:\tworks in debug mode\n'+
+      '\t\t--skipkg:\tskip package.json check\n'+
+      '\t\t--help,-h:\tshows help\n';
+    _exit = ['%s v.%s\n%s', info.name, info.version, help];
+  } else if (_options.version) {
     _exit = ['%s v.%s', info.name, info.version];
   } else {
     console.log('%s v.%s', info.name, info.version);
@@ -122,6 +134,7 @@ function _checkOptions(cb) {
 
 // check the package name
 function _checkPackage(cb) {
+  if (_isExit()) return cb();
   var pkgroot = path.join(_root, _target, PACKAGE_CONFIG);
   var pkg = (fs.existsSync(pkgroot)) ? require(pkgroot) : null;
   if (!_package.name) {
@@ -398,31 +411,13 @@ u.compose()
       console.log.apply(null, _exit);
     } else if (_error) {
       console.log('Done with errors');
-      throw _error;
+      if (_.isString(_error)) {
+        console.error('\tERROR: '+_error);
+      } else {
+        throw _error;
+      }
     } else {
       console.log('Done: \n\t%s v.%s\n\t%d package files updates\n\t%d dependencies files updates',
         _package.name, _package.version, _counter, _counterDep);
     }
   });
-
-
-// function _test() {
-//   var files = [
-//     'C:\\Sviluppo\\bower_components\\sghereghen\\client\\ciccio.js',
-//     'C:\\Sviluppo\\bower_components\\client\\ciccio.txt',
-//     'C:\\Sviluppo\\frottole\\sghereghen\\client\\popo.js'
-//   ];
-//   var filter = '*/bower_components/**/*.js;*.json;ciccio.txt;bower_components/*.txt';
-//   var fo = u.getPathFilters(filter);
-//   var fdesc = _.map(fo.items, function(fi){
-//     return '\t '+fi.str + '     {'+fi.strTemp+'}  >>>    '+fi.strFilter;
-//   });
-//   console.log('TEST start, filters: \n'+ fdesc.join('\n'));
-//   console.log('filter: \n\t'+ fo.str+'\n\n');
-//   files.forEach(function(f){
-//     var msg = fo.check(f) ? '-      SKIP file: %s' : '+OK: %s';
-//     console.log(msg, f);
-//   });
-// }
-//
-// _test();
