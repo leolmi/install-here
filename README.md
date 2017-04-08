@@ -11,9 +11,14 @@ Install npm package in folder you want. Launch this command in the folder
 $ install-here <package>
 ```
 package will be downloaded directly in folder, not in node_modules, 
-so you can update it simply reinstalling it.
+so you can update it simply reinstalling it (without specify package name):
 
-Similar to [yeoman](http://yeoman.io/) but considering the npm packages as templates!
+```
+$ install-here
+```
+
+
+Similar to basic [yeoman](http://yeoman.io/) but considering the npm packages as templates!
 
 ## Options
 Options can be defined using file

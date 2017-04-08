@@ -8,20 +8,23 @@ var _ = require('lodash');
 var u = require('./util.js');
 var rimraf = require('rimraf');
 var info = require('./package.json');
+var argv = require('yargs').argv;
 
 var INSTALL_HERE_FOLDER = '.install-here';
 var NODE_MODULES_FOLDER = 'node_modules';
 var INSTALL_HERE_CONFIG = 'install-here.json';
+var PACKAGE_CONFIG = 'package.json';
 
 // npm install-here package path
+
+// package
 var _package = null;
-var _package_name = process.argv[2];
-var _package_version = null;
-var _target = process.argv[3];
+// target installazione
+var _target = null; //process.argv[3];
 var _error = null;
 var _exit = null;
-var _force = false;
 var _temp = '';
+// root di esecuzione
 var _root = process.cwd();
 var _files = [];
 var _dependecies = [];
@@ -29,6 +32,7 @@ var _counter = 0;
 var _counterDep = 0;
 var _relpath = '';
 var _settings = {};
+var _options = {};
 var Settings = function(s) {
   this.ignore = '';
   this.ignoreOverwrite = '';
@@ -47,8 +51,13 @@ var Package = function(p) {
   var parts = (p||'').split('@');
   this.name = parts[0];
   this.version = parts.length > 1 ? parts[1] : '';
+  this.xversion = '';
 };
-
+Package.prototype = {
+  getInstallName: function() {
+    return this.name+'@'+this.version;
+  }
+};
 
 function _isExit() {
   return _exit||_error;
@@ -61,65 +70,113 @@ function _handleErr(cb) {
   }
 }
 
+function _log(m, m1) {
+  if (_options.verbose||_options.debug) {
+    console.log(m);
+  } else if (m1) {
+    console.log(m1);
+  }
+}
+
+function _logi(m) {
+  process.stdout.write(m);
+}
+
 function _init(cb) {
+  _options = {
+    version: argv.v||argv.version||argv.ver,
+    force: argv.f||argv.force,
+    verbose: argv.verbose,
+    debug: argv.d||argv.debug,
+    test: argv.t||argv.test,
+    skipkg: !!argv.skipkg
+  };
+  //TODO: target alternativo alla root d'esecuzione
+  _target = ''; //(argv._.length>1)?argv._[1]:null;
   _error = null;
   _temp = '';
   _files = [];
   _dependecies = [];
   _counter = 0;
-  _package = new Package(_package_name);
-  _package_version = null;
-  _relpath = path.join(INSTALL_HERE_FOLDER, NODE_MODULES_FOLDER, _package.name);
+  var name = (argv._.length>0)?argv._[0]:null;
+  _package = new Package(name);
   var cnfpath = path.join(_root, INSTALL_HERE_CONFIG);
   var s = (fs.existsSync(cnfpath)) ? require(cnfpath) || {} : {};
   _settings = new Settings(s);
   cb();
 }
 
+function _checkInstallHere(cb) {
+  //TODO: check the install-here version
+  cb();
+}
+
 function _checkOptions(cb) {
-  switch(_target) {
-    case '-f':
-    case '--force':
-      _force = true;
-      _target = null;
-      break;
-  }
-  switch(_package.name) {
-    case '-v':
-    case '--version':
-      _exit = ['%s v.%s', info.name, info.version];
-      break;
-    default:
-      console.log('%s v.%s', info.name, info.version);
-      console.log('package: %s   >  target: %s', _package.name, _target||'current directory');
+  if (_options.version) {
+    _exit = ['%s v.%s', info.name, info.version];
+  } else {
+    console.log('%s v.%s', info.name, info.version);
   }
   cb();
 }
 
-// retrieve remote package version
-function _packageVersion(cb) {
-  if (_isExit()) return cb();
-  cp.exec('npm view ' + _package.name + ' version', function (err, out) {
-    if (out) {
-      _package_version = out.trim();
-      console.log('remote version: %s', _package_version);
+// check the package name
+function _checkPackage(cb) {
+  var pkgroot = path.join(_root, _target, PACKAGE_CONFIG);
+  var pkg = (fs.existsSync(pkgroot)) ? require(pkgroot) : null;
+  if (!_package.name) {
+    if (pkg) {
+      _package.name = pkg.name;
+      _package.xversion = u.version(pkg.version);
     }
+  } else if (pkg && pkg.name == _package.name) {
+    _package.xversion = u.version(pkg.version);
+  }
+  if (!_package.name) {
+    _error = 'Undefined package!';
+  } else {
+    _relpath = path.join(INSTALL_HERE_FOLDER, NODE_MODULES_FOLDER, _package.name);
+    console.log('package: %s   >  target: %s', _package.name, _target || 'current directory');
+  }
+  if (_options.debug) console.log('package: '+JSON.stringify(_package));
+  cb();
+}
+
+// retrieve remote package version
+function _retrievePackageVersion(cb) {
+  if (_isExit()) return cb();
+  if (!_package.version) {
+    cp.exec('npm view ' + _package.name + ' version', function (err, out) {
+      if (out) {
+        _package.version = out.trim();
+        console.log('found %s v.%s', _package.name, _package.version);
+      }
+      cb();
+    });
+  } else {
+    console.log('installing %s v.%s', _package.name, _package.version);
     cb();
-  });
+  }
 }
 
 // check the package version
 function _checkVersion(cb) {
-  if (_isExit() || _force || !_settings.checkVersion) return cb();
-  if (_package.version || _package_version) {
-    var exsinfopath = path.join(_root, 'package.json');
-    if (fs.existsSync(exsinfopath)) {
-      var xinfo = require(exsinfopath);
-      if (xinfo.name == _package.name && xinfo.version == (_package.version || _package_version)) {
-        _exit = ['package "%s" is up-to-date.', _package.name];
-      }
+  if (_isExit() || _options.force || !_settings.checkVersion) return cb();
+  if (_package.version) {
+    if (_package.version == _package.xversion) {
+      _exit = ['package "%s" is up-to-date.', _package.name];
+    } else if (_package.xversion) {
+      console.log('installed %s v.%s', _package.name, _package.xversion);
     }
+  } else {
+    _error = 'Package version not found!';
   }
+  cb();
+}
+
+function _checkTest(cb) {
+  if (_isExit()) return cb();
+  if (_options.test) _exit = ['test finished.'];
   cb();
 }
 
@@ -141,8 +198,9 @@ function _createTempPath(cb) {
 
 // remove temporary path
 function _deleteTemp(cb) {
+  if (_isExit()) return cb();
   var temp = path.join(_root, INSTALL_HERE_FOLDER);
-  if (fs.existsSync(temp)) {
+  if (!_options.debug && fs.existsSync(temp)) {
     console.log('remove temporary path');
     rimraf(temp, _handleErr(cb));
   } else {
@@ -154,9 +212,10 @@ function _deleteTemp(cb) {
 function _install(cb) {
   if (_isExit()) return cb();
   console.log('installing package...');
-  var process = cp.exec('npm install '+_package.fullName,{cwd: _temp+'/'}, function(err, out){
+  var cmd = 'npm install ' + _package.getInstallName();
+  var process = cp.exec(cmd, {cwd: _temp + '/'}, function (err, out) {
     if (err) _error = err;
-    if (out) console.log('install output:\n'+out);
+    if (out) _log('install output:\n' + out);
     cb();
   });
   process.on('error', _handleErr(cb));
@@ -198,22 +257,46 @@ function _checkPath(f) {
   _checkPathX(relfolder);
 }
 
+// gestisce i file package.json
+// riporta le dipendenze sul nuovo
+function _managePkg(xdata, ndata) {
+  try {
+    var xpkg = JSON.parse(xdata);
+    var npkg = JSON.parse(ndata);
+    for (var dep in xpkg.dependencies) {
+      if (!npkg.dependencies[dep])
+        npkg.dependencies[dep] = xpkg.dependencies[dep];
+    }
+    ndata = JSON.stringify(npkg, null, 2);
+  } catch(err){
+    console.error(err);
+  }
+  return ndata;
+}
+
 // updates file
 function _replacePkgFile(f) {
   var nf = f.replace(_relpath + path.sep, '');
   if (_settings._filters.ignore.check(nf))
-    return console.log('Skip file: '+nf);
+    return _log('Skip file: '+nf);
 
   _checkPath(nf);
 
+  var xdata = null;
+  var ispkj = false;
   if (fs.existsSync(nf)) {
     if (_settings._filters.ignoreOverwrite.check(nf))
-      return console.log('Skip overwriting file: '+nf);
-
+      return _log('Skip overwriting file: '+nf);
+    ispkj = (path.basename(nf)==PACKAGE_CONFIG);
+    if (ispkj && !_options.skipkg) xdata = fs.readFileSync(nf);
+    //elimina il file originale
     fs.unlinkSync(nf);
   }
-  console.log('replace file: ' + nf);
+  _log('replace file: ' + nf);
+  //legge il file
   var data = fs.readFileSync(f);
+  if (ispkj && xdata) data = _managePkg(xdata, data);
+  //scrive il nuovo file
   fs.writeFileSync(nf, data);
   _counter++;
 }
@@ -224,7 +307,7 @@ function _replaceDepFile(f) {
   if (fs.existsSync(nf)) {
     fs.unlinkSync(nf);
   }
-  console.log('replace dependency file: ' + nf);
+  _log('replace dependency file: ' + nf);
   var data = fs.readFileSync(f);
   fs.writeFileSync(nf, data);
   _counterDep++;
@@ -251,7 +334,7 @@ function _checkFileList(list) {
       _settings._filters.ignorePath.check(relfolder);
     if (skip) {
       var nf = f.replace(_relpath + path.sep, '');
-      console.log('Skip writing file: ' + nf);
+      _log('Skip writing file: ' + nf);
     }
     return skip;
   });
@@ -297,9 +380,12 @@ function _saveSettings(cb) {
 
 u.compose()
   .use(_init)
+  .use(_checkInstallHere)
   .use(_checkOptions)
-  .use(_packageVersion)
+  .use(_checkPackage)
+  .use(_retrievePackageVersion)
   .use(_checkVersion)
+  .use(_checkTest)
   .use(_deleteTemp)
   .use(_createTempPath)
   .use(_install)
@@ -314,7 +400,8 @@ u.compose()
       console.log('Done with errors');
       throw _error;
     } else {
-      console.log('Done: \n\t%d package files updates\n\t%d dependencies files updates', _counter, _counterDep);
+      console.log('Done: \n\t%s v.%s\n\t%d package files updates\n\t%d dependencies files updates',
+        _package.name, _package.version, _counter, _counterDep);
     }
   });
 
