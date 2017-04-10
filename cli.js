@@ -42,6 +42,7 @@ var _options = {};
 // permette di eliminare il folder temporaneo
 var _force_first = true;
 
+
 var Settings = function(s, o) {
   this.ignore = '';
   this.ignoreOverwrite = '';

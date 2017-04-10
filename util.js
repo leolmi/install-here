@@ -2,6 +2,7 @@
 var _ = require('lodash');
 var path = require('path');
 
+
 function _getStep(c) {
   var step = c._step < c._stack.length ? c._stack[c._step] : null;
   c._step++;
