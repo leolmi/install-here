@@ -15,24 +15,33 @@ var NODE_MODULES_FOLDER = 'node_modules';
 var INSTALL_HERE_CONFIG = 'install-here.json';
 var PACKAGE_CONFIG = 'package.json';
 
-// npm install-here package path
+// npm install-here [<package>] [<target>] [<options>]
 
 // package
 var _package = null;
-// target installazione
-var _target = null; //process.argv[3];
+// errori
 var _error = null;
+// argomento d'uscita
 var _exit = null;
+// path temporanea di installazione moduli
 var _temp = '';
 // root di esecuzione
 var _root = process.cwd();
+// elenco file processati
 var _files = [];
+// elenco dipendenze
 var _dependecies = [];
 // contatori
 var _counters = null;
+// path relativo
 var _relpath = '';
+// impostazioni
 var _settings = {};
+// opzioni
 var _options = {};
+// permette di eliminare il folder temporaneo
+var _force_first = true;
+
 var Settings = function(s, o) {
   this.ignore = '';
   this.ignoreOverwrite = '';
@@ -94,14 +103,13 @@ function _init(cb) {
     skipkg: !!argv.skipkg,
     help: !!argv.h || argv.help,
     xpre: argv.xpre,
-    xpost: argv.xpost
+    xpost: argv.xpost,
+    target: '' //argv.target
   };
   _counters = {
     files: 0,
     dependencies: 0,
   };
-  //TODO: target alternativo alla root d'esecuzione
-  _target = ''; //(argv._.length>1)?argv._[1]:null;
   _error = null;
   _temp = '';
   _files = [];
@@ -112,6 +120,7 @@ function _init(cb) {
   var s = (fs.existsSync(cnfpath)) ? require(cnfpath) || {} : {};
   _settings = new Settings(s, _options);
   _log('settings: '+JSON.stringify(_settings));
+  _force_first = true;
   cb();
 }
 
@@ -143,7 +152,7 @@ function _checkOptions(cb) {
 // check the package name
 function _checkPackage(cb) {
   if (_isExit()) return cb();
-  var pkgroot = path.join(_root, _target, PACKAGE_CONFIG);
+  var pkgroot = path.join(_root, _options.target, PACKAGE_CONFIG);
   var pkg = (fs.existsSync(pkgroot)) ? require(pkgroot) : null;
   if (!_package.name) {
     if (pkg) {
@@ -157,7 +166,7 @@ function _checkPackage(cb) {
     _error = 'Undefined package!';
   } else {
     _relpath = path.join(INSTALL_HERE_FOLDER, NODE_MODULES_FOLDER, _package.name);
-    console.log('package: %s   >  target: %s', _package.name, _target || 'current directory');
+    console.log('package: %s   >  target: %s', _package.name, _options.target || 'current directory');
   }
   if (_options.debug) console.log('package: '+JSON.stringify(_package));
   cb();
@@ -240,13 +249,15 @@ function _createTempPath(cb) {
 }
 
 // remove temporary path
-function _deleteTemp(cb) {
+function _deleteTempPath(cb) {
   if (_isExit()) return cb();
   var temp = path.join(_root, INSTALL_HERE_FOLDER);
-  if (!_options.debug && fs.existsSync(temp)) {
+  if ((!_options.debug || _force_first) && fs.existsSync(temp)) {
     console.log('remove temporary path');
+    _force_first = false;
     rimraf(temp, _handleErr(cb));
   } else {
+    _force_first = false;
     cb();
   }
 }
@@ -430,13 +441,13 @@ u.compose()
   .use(_retrievePackageVersion)
   .use(_checkVersion)
   .use(_checkTest)
-  .use(_deleteTemp)
+  .use(_deleteTempPath)
   .use(_createTempPath)
   .use(_execPre)
   .use(_install)
   .use(_replace)
   .use(_replaceDep)
-  .use(_deleteTemp)
+  .use(_deleteTempPath)
   .use(_saveSettings)
   .use(_execPost)
   .run(function() {
