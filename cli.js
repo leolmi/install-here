@@ -82,12 +82,11 @@ function _handleErr(cb) {
   }
 }
 
-function _log(m, m1, mtd) {
-  mtd = mtd||'log';
+function _log(m, m1) {
   if (_options.verbose||_options.debug) {
-    console[mtd](m);
+    console.log(m);
   } else if (m1) {
-    console[mtd](m1);
+    console.log(m1);
   }
 }
 
@@ -148,7 +147,7 @@ function _checkOptions(cb) {
   } else if (_options.version) {
     _exit = ['%s v.%s', info.name, info.version];
   } else {
-    _log(null, '%s v.%s', info.name, info.version);
+    console.log('%s v.%s', info.name, info.version);
   }
   cb();
 }
@@ -169,14 +168,14 @@ function _checkPackage(cb) {
     } else {
       _error = 'Other package not allowed (current: "' + pkg.name +
         '")\nuse --patch option to merge other package!';
-      cb();
+      return cb();
     }
   }
   if (!_package.name) {
     _error = 'Undefined package!\nuse: install-here <package> [<options>]';
   } else {
     _relpath = path.join(INSTALL_HERE_FOLDER, NODE_MODULES_FOLDER, _package.name);
-    // _log(null, 'package: %s   >  target: %s', _package.name, _options.target || 'current directory');
+    // console.log('package: %s   >  target: %s', _package.name, _options.target || 'current directory');
   }
   if (_options.debug) _log(null, 'package: '+JSON.stringify(_package));
   cb();
@@ -190,12 +189,12 @@ function _retrievePackageVersion(cb) {
     cp.exec('npm view ' + _package.name + ' version', function (err, out) {
       if (out) {
         _package.version = out.trim();
-        _log(null, 'found %s v.%s %s', _package.name, _package.version, patch);
+        console.log('found %s v.%s %s', _package.name, _package.version, patch);
       }
       cb();
     });
   } else {
-    _log(null, 'installing %s v.%s %s', _package.name, _package.version, patch);
+    console.log('installing %s v.%s %s', _package.name, _package.version, patch);
     cb();
   }
 }
@@ -207,7 +206,7 @@ function _checkVersion(cb) {
     if (_package.version == _package.xversion) {
       _exit = ['package "%s" is up-to-date.', _package.name];
     } else if (_package.xversion) {
-      _log(null, 'current %s v.%s', _package.name, _package.xversion);
+      console.log('current %s v.%s', _package.name, _package.xversion);
     }
   }
   if (!_package.version) {
@@ -475,7 +474,7 @@ u.compose()
         throw _error;
       }
     } else {
-      _log(null, 'Done: \n\t%s v.%s\n\t%d package files updates\n\t%d dependencies files updates',
+      console.log('Done: \n\t%s v.%s\n\t%d package files updates\n\t%d dependencies files updates',
         _package.name, _package.version, _counters.files, _counters.dependencies);
     }
   });
