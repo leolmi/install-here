@@ -1,11 +1,14 @@
 # install-here
 [![Build Status](https://travis-ci.org/leolmi/install-here.svg)](https://travis-ci.org/leolmi/install-here)
 
+Your packages as updatable templates
+
 ## Install
 ```
 $ npm install install-here -g
 ``` 
 
+## Use
 Install npm package in folder you want. Launch this command in the folder 
 ```
 $ install-here <package> [<options>]
@@ -17,8 +20,7 @@ so you can update it simply reinstalling it (without specifying the name):
 $ install-here
 ```
 
-
-Similar to basic [yeoman](http://yeoman.io/) but considering the npm packages as templates!
+Similar to a basic [yeoman](http://yeoman.io/) but considering the npm packages as templates!
 
 ## Options
 Options can be defined using file
