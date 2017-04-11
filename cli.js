@@ -151,7 +151,8 @@ function _checkOptions(cb) {
     var logfile = path.join(__dirname, CHANGE_LOG);
     var log = (fs.existsSync(logfile)) ? fs.readFileSync(logfile) : '';
     var m = rgx.exec(log);
-    _exit = ['%s v.%s \n\n%s', info.name, info.version, (m?m[1]:'')];
+    var cnglog = _options.verbose ? log : (m?m[1]:'');
+    _exit = ['%s v.%s \n\n%s', info.name, info.version, cnglog];
   } else {
     console.log('%s v.%s', info.name, info.version);
   }
