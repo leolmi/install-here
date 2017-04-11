@@ -14,6 +14,7 @@ var INSTALL_HERE_FOLDER = '.install-here';
 var NODE_MODULES_FOLDER = 'node_modules';
 var INSTALL_HERE_CONFIG = 'install-here.json';
 var PACKAGE_CONFIG = 'package.json';
+var CHANGE_LOG = 'changelog.md';
 
 // npm install-here [<package>] [<target>] [<options>]
 
@@ -110,7 +111,7 @@ function _init(cb) {
   };
   _counters = {
     files: 0,
-    dependencies: 0,
+    dependencies: 0
   };
   _error = null;
   _temp = '';
@@ -145,7 +146,12 @@ function _checkOptions(cb) {
       '\t\t--help,-h:\tshows the help\n';
     _exit = ['%s v.%s\n%s', info.name, info.version, help];
   } else if (_options.version) {
-    _exit = ['%s v.%s', info.name, info.version];
+    var v = u.version(info.version);
+    var rgx =  new RegExp('## '+v+'[\n]*([^#]*)', 'g');
+    var logfile = path.join(__dirname, CHANGE_LOG);
+    var log = (fs.existsSync(logfile)) ? fs.readFileSync(logfile) : '';
+    var m = rgx.exec(log);
+    _exit = ['%s v.%s \n\n%s', info.name, info.version, (m?m[1]:'')];
   } else {
     console.log('%s v.%s', info.name, info.version);
   }
@@ -167,12 +173,15 @@ function _checkPackage(cb) {
       _package.xversion = u.version(pkg.version);
     } else {
       _error = 'Other package not allowed (current: "' + pkg.name +
-        '")\nuse --patch option to merge other package!';
-      return cb();
+        '")\n\tuse --patch option to merging with other package!';
     }
+  } else if (!pkg && _options.patch) {
+    _error = 'Nothing to patch!\n\tinstall base package before.';
   }
+  if (_isExit()) return cb();
+
   if (!_package.name) {
-    _error = 'Undefined package!\nuse: install-here <package> [<options>]';
+    _error = 'Undefined package!\n\tuse: install-here <package> [<options>]';
   } else {
     _relpath = path.join(INSTALL_HERE_FOLDER, NODE_MODULES_FOLDER, _package.name);
     // console.log('package: %s   >  target: %s', _package.name, _options.target || 'current directory');
@@ -467,7 +476,6 @@ u.compose()
     if (_exit) {
       console.log.apply(null, _exit);
     } else if (_error) {
-      _log(null, 'Done with errors');
       if (_.isString(_error)) {
         console.error('\tERROR: '+_error);
       } else {
