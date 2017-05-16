@@ -196,11 +196,15 @@ function _retrievePackageVersion(cb) {
   if (_isExit()) return cb();
   var patch = _options.patch?' as patch':'';
   if (!_package.version) {
-    cp.exec('npm view ' + _package.name + ' version', function (err, out) {
+    var cmd = 'npm view ' + _package.name + ' version -g';
+    if (_options.debug) console.log('Try to retrieve version: "%s"', cmd);
+    cp.exec(cmd, function (err, out) {
       if (out) {
         _package.version = out.trim();
         console.log('found %s v.%s %s', _package.name, _package.version, patch);
       }
+      if (err && _options.debug)
+        console.error(err);
       cb();
     });
   } else {
