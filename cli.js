@@ -346,6 +346,10 @@ function _managePkg(xdata, ndata) {
       if (!npkg.dependencies[dep])
         npkg.dependencies[dep] = xpkg.dependencies[dep];
     }
+    for (var pn in npkg) {
+      if (pn&&pn.indexOf('_')==0)
+        delete npkg[pn];
+    }
     ndata = JSON.stringify(npkg, null, 2);
   } catch(err){
     console.error(err);
