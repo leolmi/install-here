@@ -98,6 +98,7 @@ function _logi(m) {
 function _init(cb) {
   _options = {
     version: argv.v || argv.version || argv.ver,
+    history: argv.vh || argv.verhist,
     force: argv.f || argv.force,
     verbose: argv.verbose,
     debug: argv.d || argv.debug,
@@ -138,6 +139,7 @@ function _checkOptions(cb) {
       '\t<package>\tpackage name (optional)\n'+
       '\t<options>\toptions (optional):\n'+
       '\t\t--version,-v:\tshows version\n'+
+      '\t\t--verhist,-vh:\tshows version history\n'+
       '\t\t--force,-f:\tforce update\n'+
       '\t\t--verbose:\tshow the verbose log\n'+
       '\t\t--debug,-d:\tworks in debug mode\n'+
@@ -153,6 +155,10 @@ function _checkOptions(cb) {
     var m = rgx.exec(log);
     var cnglog = _options.verbose ? log : (m?m[1]:'');
     _exit = ['%s v.%s \n\n%s', info.name, info.version, cnglog];
+  } else if (_options.history) {
+    var histfile = path.join(__dirname, CHANGE_LOG);
+    var hist = (fs.existsSync(histfile)) ? fs.readFileSync(histfile) : '';
+    _exit = ['%s version history:\n', info.name, hist.toString()];
   } else {
     console.log('%s v.%s', info.name, info.version);
   }
