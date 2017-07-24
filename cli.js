@@ -297,13 +297,37 @@ function _deleteTempPath(cb) {
 function _install(cb) {
   if (_isExit()) return cb();
   _log(null, 'installing package...');
-  var cmd = 'npm install ' + _package.getInstallName();
+  const cmd = 'npm install ' + _package.getInstallName();
   var process = cp.exec(cmd, {cwd: _temp + '/'}, function (err, out) {
     if (err) _error = err;
     if (out) _log('install output:\n' + out);
     cb();
   });
   process.on('error', _handleErr(cb));
+}
+
+// remove deprecate files & paths
+function _delete(cb) {
+  const name = _package.getInstallName();
+  const fn_config = path.join(_temp, name, INSTALL_HERE_CONFIG);
+  if (fs.existsSync(fn_config)) {
+    var config = require(fn_config);
+    if (_.isString(config.delete)) {
+      _log(null, 'deleting deprecated...');
+      config.delete.split(';').forEach(function(fp){
+        var pn = path.join(_root, fp);
+        if (fs.existsSync(pn)) {
+          var stat = fs.statSync(pn);
+          if (stat.isDirectory()) {
+            rimraf(pn, _handleErr(cb));
+          } else {
+            fs.unlinkSync(pn);
+          }
+        }
+      });
+    }
+  }
+  cb();
 }
 
 function _getRelativeFolder(f) {
@@ -482,6 +506,7 @@ u.compose()
   .use(_createTempPath)
   .use(_execPre)
   .use(_install)
+  .use(_delete)
   .use(_replace)
   .use(_replaceDep)
   .use(_deleteTempPath)
