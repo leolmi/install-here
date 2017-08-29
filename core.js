@@ -355,12 +355,12 @@ exports.install = function(cb) {
   _log(null, 'installing package...');
   const verb = _state.options.pack ? 'pack' : 'install';
   const cmd = 'npm ' + verb + ' ' + _state.package.getInstallName();
-  _log('installing package: '+cmd);
+  _log('installing package: ' + cmd);
   var process = cp.exec(cmd, {cwd: _state.temp + '/'}, function (err, out) {
     if (err) _state.error = err;
     if (out) _log('install output:\n' + out);
     if (_state.options.pack) {
-      _log('extract package: %s', out);
+      _log('extract package: ' + out);
       const pack = path.join(_state.temp, (out || '').trim());
       const targetp = path.join(_state.temp, _state.package.name);
       tar.extract({
@@ -369,7 +369,7 @@ exports.install = function(cb) {
       }).then(function() {
         fs.unlinkSync(pack);
         const sourcep = path.join(_state.temp, 'package');
-        _log('rename target folder: %s > %s', sourcep, targetp);
+        _log('rename target folder: ' + sourcep + ' > ' + targetp);
         fs.rename(sourcep, targetp, function(err) {
           if (err) _state.error = err;
           _log('installed.');
@@ -557,7 +557,8 @@ exports.checkGitIgnore = function(cb){
 exports.saveSettings = function(cb) {
   if (_state.isExit()) return cb();
   var cnfpath = path.join(_state.root, _state.config);
-  if (!fs.existsSync(cnfpath)) {
+  _log('save settings: '+cnfpath);
+  if (!fs.existsSync(cnfpath) || !!_state.options.forceSts) {
     var ser = _.clone(_state.settings);
     delete ser._filters;
     var data = JSON.stringify(ser, null, 2);
