@@ -22,6 +22,7 @@ u.compose()
   .use(ih.replace)
   .use(ih.replaceDep)
   .use(ih.deleteTempPath)
+  .use(ih.checkGitIgnore)
   .use(ih.saveSettings)
   .use(ih.execPost)
   .run(ih.report);

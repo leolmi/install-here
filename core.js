@@ -7,13 +7,16 @@ const _ = require('lodash');
 const u = require('./util.js');
 const rimraf = require('rimraf');
 const info = require('./package.json');
+const tar = require('tar');
 
 const _constants = {
   INSTALL_HERE_FOLDER: '.install-here',
   NODE_MODULES_FOLDER: 'node_modules',
   INSTALL_HERE_CONFIG: 'install-here.json',
   PACKAGE_CONFIG: 'package.json',
-  CHANGE_LOG: 'changelog.md'
+  CHANGE_LOG: 'changelog.md',
+  GIT_IGNORE_FILE: '.gitignore',
+  GIT_IGNORE: 'node_modules\npublic\n.tmp\n.sass-cache\n.idea\n.install-here\ndist'
 };
 
 exports.constants = _constants;
@@ -157,10 +160,12 @@ exports.init = function(a) {
       debug: a.d || a.debug,
       test: a.t || a.test,
       skipkg: !!a.skipkg,
-      help: !!a.h || a.help,
+      skipgit: !!a.skipgit,
+      help: !!(a.h || a.help),
       xpre: a.xpre,
       xpost: a.xpost,
       patch: !!a.patch,
+      pack: !!(a.p || a.pack),
       target: '' //a.target
     };
     var name = (a._.length > 0) ? a._[0] : null;
@@ -189,7 +194,9 @@ exports.checkOptions = function(cb) {
       '\t\t--verbose:\tshow the verbose log\n'+
       '\t\t--debug,-d:\tworks in debug mode\n'+
       '\t\t--patch,-p:\tinstall in patch mode\n'+
+      '\t\t--pack,-p:\tinstall pack without dependencies\n'+
       '\t\t--skipkg:\tskip package.json check\n'+
+      '\t\t--skipgit:\tskip .gitignore check\n'+
       '\t\t--help,-h:\tshows the help\n';
     _state.exit = ['%s v.%s\n%s', info.name, info.version, help];
   } else if (_state.options.version) {
@@ -347,11 +354,33 @@ exports.deleteTempPath = function(cb) {
 exports.install = function(cb) {
   if (_state.isExit()) return cb();
   _log(null, 'installing package...');
-  const cmd = 'npm install ' + _state.package.getInstallName();
+  const verb = _state.options.pack ? 'pack' : 'install';
+  const cmd = 'npm ' + verb + ' ' + _state.package.getInstallName();
+  _log('installing package: '+cmd);
   var process = cp.exec(cmd, {cwd: _state.temp + '/'}, function (err, out) {
     if (err) _state.error = err;
     if (out) _log('install output:\n' + out);
-    cb();
+    if (_state.options.pack) {
+      _log('extract package: %s', out);
+      const pack = path.join(_state.temp, (out || '').trim());
+      const targetp = path.join(_state.temp, _state.package.name);
+      tar.extract({
+        file: pack,
+        cwd: _state.temp
+      }).then(function() {
+        fs.unlinkSync(pack);
+        const sourcep = path.join(_state.temp, 'package');
+        _log('rename target folder: %s > %s', sourcep, targetp);
+        fs.rename(sourcep, targetp, function(err) {
+          if (err) _state.error = err;
+          _log('installed.');
+          cb();
+        });
+      }, _handleErr(cb));
+    } else {
+      _log('installed.');
+      cb();
+    }
   });
   process.on('error', _handleErr(cb));
 };
@@ -514,6 +543,14 @@ exports.replaceDep = function(cb) {
   } catch(err) {
     _handleErr(cb)(err);
   }
+};
+
+exports.checkGitIgnore = function(cb){
+  var gtipath = path.join(_state.root, _constants.GIT_IGNORE_FILE);
+  if (!fs.existsSync(gtipath) && _state.options.skipgit!==true) {
+    fs.writeFileSync(gtipath, _constants.GIT_IGNORE);
+  }
+  cb();
 };
 
 exports.saveSettings = function(cb) {
