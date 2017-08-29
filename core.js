@@ -338,7 +338,6 @@ exports.createTempPath = function(cb) {
 
 // remove temporary path
 exports.deleteTempPath = function(cb) {
-  if (_state.isExit()) return cb();
   var temp = path.join(_state.root, _constants.INSTALL_HERE_FOLDER);
   if ((!_state.options.debug || _state.force_first) && fs.existsSync(temp)) {
     _log(null, 'remove temporary path');
@@ -387,6 +386,7 @@ exports.install = function(cb) {
 
 // remove deprecate files & paths
 exports.delete = function(cb) {
+  if (_state.isExit()) return cb();
   const name = _state.package.getInstallName();
   const fn_config = path.join(_state.temp, name, _state.config);
   if (fs.existsSync(fn_config)) {
@@ -546,6 +546,7 @@ exports.replaceDep = function(cb) {
 };
 
 exports.checkGitIgnore = function(cb){
+  if (_state.isExit()) return cb();
   var gtipath = path.join(_state.root, _constants.GIT_IGNORE_FILE);
   if (!fs.existsSync(gtipath) && _state.options.skipgit!==true) {
     fs.writeFileSync(gtipath, _constants.GIT_IGNORE);
@@ -554,6 +555,7 @@ exports.checkGitIgnore = function(cb){
 };
 
 exports.saveSettings = function(cb) {
+  if (_state.isExit()) return cb();
   var cnfpath = path.join(_state.root, _state.config);
   if (!fs.existsSync(cnfpath)) {
     var ser = _.clone(_state.settings);
