@@ -26,6 +26,7 @@
   },
   "files": [
     "cli.js",
+    "core.js",
     "util.js"
   ],
   "engines": {

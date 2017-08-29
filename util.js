@@ -120,8 +120,20 @@ PathFilter.prototype = {
   }
 };
 
+exports.logi = function(m) {
+  process.stdout.write(m);
+};
+
+
 exports.getPathFilters = function(filter, defaults) { return new PathFilter(filter, defaults); }
 
 exports.version = function (v) {
   return ''+(v.match(/\d+\.\d+\.\d+.*/g)||'');
+};
+
+exports.sanitize = function(o) {
+  for (var pn in o) {
+    if (pn&&pn.indexOf('_')==0)
+      delete o[pn];
+  }
 };
