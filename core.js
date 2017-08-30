@@ -49,7 +49,6 @@ const _state = {
   force_first: true,
   // resetta lo stato
   reset: function() {
-    this.config = _constants.INSTALL_HERE_CONFIG;
     this.force_first = true;
     this.relpath = '';
     this.root = process.cwd();
