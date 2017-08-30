@@ -448,34 +448,34 @@ function _checkPath(f) {
 
 // updates file
 function _replacePkgFile(f) {
-  var nf = f.replace(_state.relpath + path.sep, '');
+  const nf = f.replace(_state.relpath + path.sep, '');
   if (_state.settings._filters.ignore.check(nf))
     return _log('Skip file: ' + nf);
 
   _checkPath(nf);
 
   var xdata = null;
-  var ispkj = (path.basename(nf) == _constants.PACKAGE_CONFIG);
+  const ispkj = (path.basename(nf) == _constants.PACKAGE_CONFIG);
   if (ispkj && _state.options.patch)
     return _log('Skip overwriting file: ' + nf);
-  if (fs.existsSync(nf)) {
+  const exists = fs.existsSync(nf);
+  if (exists) {
     if (_state.settings._filters.ignoreOverwrite.check(nf))
       return _log('Skip overwriting file: ' + nf);
     if (ispkj && !_state.options.skipkg) xdata = fs.readFileSync(nf);
-    //elimina il file originale
-    fs.unlinkSync(nf);
   }
-  //legge il file
+  // legge il file
   var data = fs.readFileSync(f);
-  if (xdata) {
-    if (ispkj) {
-      data = _state.managePkg(xdata, data);
-    } else if (_.isFunction(_state.manageFile)) {
-      data = _state.manageFile(data, nf);
-    }
+  if (ispkj && xdata) {
+    data = _state.managePkg(xdata, data);
+  } else if (_.isFunction(_state.manageFile)) {
+    data = _state.manageFile(data, nf, exists);
   }
   if (!data) return _log('Skip file: ' + nf);
+
   _log('replace file: ' + nf);
+  //elimina il file originale se esiste
+  if (exists) fs.unlinkSync(nf);
   //scrive il nuovo file
   fs.writeFileSync(nf, data);
   _state.counters.files++;
