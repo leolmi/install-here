@@ -85,17 +85,19 @@ const _state = {
 
 exports.state = _state;
 
+// adds undefined dependencies
 function _managePkgDeps(spkg, tpkg, deps, check) {
+  deps = deps||'dependencies';
   const source = spkg[deps]||{};
   const target = tpkg[deps]||{};
   _.keys(source).forEach(function(dep){
-    if (!!check && target[dep] != source[dep]) _state.counters.depAddUpd++;
-    target[dep] = source[dep];
+    if (!!check && !target[dep]) _state.counters.depAddUpd++;
+    target[dep] = target[dep]||source[dep];
   });
 }
 
 function _managePkg(spkg, tpkg) {
-  _managePkgDeps(spkg, tpkg, 'dependencies');
+  _managePkgDeps(spkg, tpkg);
   _managePkgDeps(spkg, tpkg, 'devDependencies', true);
   u.sanitize(tpkg);
 }
