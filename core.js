@@ -72,27 +72,39 @@ const _state = {
   // gestisce le modifiche al package.json
   managePkg: function(xdata, ndata) {
     try {
-      var xpkg = JSON.parse(xdata);
-      var npkg = JSON.parse(ndata);
-      _managePkg(xpkg, npkg);
-      ndata = JSON.stringify(npkg, null, 2);
+      var npkg = JSON.parse(ndata||'{}');
+      var xpkg = xdata?JSON.parse(xdata):JSON.parse(ndata||'{}');
+      _managePkg(npkg, xpkg);
+      _initPkg(xpkg);
+      xdata = JSON.stringify(xpkg, null, 2);
+      _log('package.json managed: %s', xdata);
     } catch(err){
       console.error(err);
     }
-    return ndata;
+    return xdata;
   }
 };
 
 exports.state = _state;
 
-// adds undefined dependencies
+function _initPkg(pkg) {
+  pkg.name = _state.package.name||'MY-PROJECT-NAME';
+  pkg.version = _state.package.version||'0.0.0';
+  pkg.license = _state.package.license||'';
+  pkg.author = _state.package.author||'';
+  pkg.url = _state.package.url||'';
+  pkg.email = _state.package.email||'';
+  pkg.keywords = _state.package.keywords||[];
+}
+
+// adds/overrite with source dependencies
 function _managePkgDeps(spkg, tpkg, deps, check) {
   deps = deps||'dependencies';
   const source = spkg[deps]||{};
   const target = tpkg[deps]||{};
   _.keys(source).forEach(function(dep){
     if (!!check && !target[dep]) _state.counters.depAddUpd++;
-    target[dep] = target[dep]||source[dep];
+    target[dep] = source[dep];
   });
 }
 
@@ -104,48 +116,78 @@ function _managePkg(spkg, tpkg) {
 
 exports.managePkg = _managePkg;
 
-var Settings = function(s) {
-  this.ignore = '';
-  this.ignoreOverwrite = '';
-  this.ignorePath = '';
-  this.checkVersion = true;
-  if (s) _.extend(this, s);
-  var self = this;
-  this._filters = {
-    ignore: u.getPathFilters(self.ignore),
-    ignoreOverwrite: u.getPathFilters(self.ignoreOverwrite, _state.config),
-    ignorePath: u.getPathFilters(self.ignorePath)
-  };
-  this.xpre = this.xpre || (_state.options||{}).xpre;
-  this.xpost = this.xpost || (_state.options||{}).xpost;
-};
-var Package = function(p) {
-  this.fullName = p||'';
-  var parts = (p||'').split('@');
-  this.name = parts[0];
-  this.version = parts.length > 1 ? parts[1] : '';
-  this.xversion = '';
-};
-Package.prototype = {
-  getInstallName: function() {
-    return this.name+'@'+this.version;
-  }
-};
 
-function _handleErr(cb) {
+function _handleErr(cb, skip) {
   return function(err) {
-    if (err) _state.error = err;
+    if (err) {
+      skip ? _state.error = err : console.error(err);
+    }
     cb();
   }
 }
 
-function _log(m, m1) {
-  if (_state.options.verbose||_state.options.debug) {
-    console.log(m);
-  } else if (m1) {
-    console.log(m1);
+function _log() {
+  if (_state.options.verbose || _state.options.debug) {
+    const args = Array.prototype.slice.call(arguments);
+    if (args.length > 0 && args[0])
+      console.log.apply(null, args);
   }
 }
+
+function _getInfo(name) {
+  var parts = (name||'').split('@');
+  return {
+    fullName: name||'',
+    name: parts[0],
+    version: (parts.length > 1) ? parts[1] : ''
+  }
+}
+
+function _getRootJson(name) {
+  const json_path = path.join(_state.root, name);
+  return (fs.existsSync(json_path)) ? require(json_path) : null;
+}
+
+var Settings = function() {
+  var self = this;
+  self.name = '';
+  self.version = '';
+  self.ignore = '';
+  self.ignoreOverwrite = '';
+  self.ignorePath = '';
+  self.checkVersion = true;
+  self._local = _getRootJson(_state.config);
+  _.extend(self, self._local||{});
+  self._version = self.version;
+  self._filters = {
+    ignore: u.getPathFilters(self.ignore),
+    ignoreOverwrite: u.getPathFilters(self.ignoreOverwrite, _state.config),
+    ignorePath: u.getPathFilters(self.ignorePath)
+  };
+  self.xpre = self.xpre || (_state.options||{}).xpre;
+  self.xpost = self.xpost || (_state.options||{}).xpost;
+};
+Settings.prototype = {
+  keepVersion: function(v) {
+    this._version = this.version;
+    this.version = u.version(v);
+  },
+  getInstallName: function() {
+    return this.name+'@'+this.version;
+  },
+  checkRemote: function() {
+    var self = this;
+    _log('remote config content: %s', (self._remote?JSON.stringify(self._remote):'empty'));
+    if (!self._local && self._remote) _.extend(self, self._remote)
+    _log('remote package content: %s', (self._remotePkg?JSON.stringify(self._remotePkg):'empty'));
+    if (self._remotePkg) {
+      self.name = self.name||self._remotePkg.name;
+      self.version = self._remotePkg.version;
+    }
+  }
+};
+
+
 
 exports.log = _log;
 
@@ -166,15 +208,12 @@ exports.init = function(a) {
       xpre: a.xpre,
       xpost: a.xpost,
       patch: !!a.patch,
-      pack: !!(a.p || a.pack),
-      target: '' //a.target
+      pack: !!(a.p || a.pack)
     };
-    var name = (a._.length > 0) ? a._[0] : null;
-    _state.package = new Package(name);
-    var cnfpath = path.join(_state.root, _state.config);
-    var s = (fs.existsSync(cnfpath)) ? require(cnfpath) || {} : {};
-    _state.settings = new Settings(s);
-    _log('settings: ' + JSON.stringify(_state.settings));
+    _state.package = _getRootJson(_constants.PACKAGE_CONFIG)||{};
+    _state.info = _getInfo((a._.length > 0) ? a._[0] : null);
+    _state.settings = new Settings();
+    _log('settings: %s', JSON.stringify(_state.settings));
     (cb||_.noop)();
   }
 };
@@ -218,40 +257,47 @@ exports.checkOptions = function(cb) {
   cb();
 };
 
+
 // check the package name
 exports.checkPackage = function(cb) {
   if (_state.isExit()) return cb();
-  var pkgroot = path.join(_state.root, _state.options.target, _constants.PACKAGE_CONFIG);
-  var pkg = (fs.existsSync(pkgroot)) ? require(pkgroot) : null;
-  if (!_state.package.name) {
-    // se non viene passato il nome esplicitamente e non è una patch
-    // si aspetta di aggiornare il package esistente
-    if (!_state.options.patch && pkg) {
-      _state.package.name = pkg.name;
-      _state.package.xversion = u.version(pkg.version);
+  // name and version will be the package ones if undefined
+  _state.settings.name = _state.settings.name || _state.package.name;
+  _state.settings.version = _state.settings.version || _state.package.version;
+
+  _log('check settings: %s', JSON.stringify(_state.settings));
+
+  if (!_state.info.name) {
+    // se non viene passato il nome esplicitamente ed è
+    // una patch segnala l'errore
+    if (_state.options.patch) {
+      _state.error = 'Undefined patch name!';
     }
-  } else if (pkg && !_state.options.patch) {
+  } else if (_state.settings.name && !_state.options.patch) {
     // se il nome del package è stato passato ed esiste già
     // una definizione e non è una patch
-    if (pkg.name == _state.package.name) {
-      _state.package.xversion = u.version(pkg.version);
+    if (_state.info.name == _state.settings.name) {
+      _state.settings.keepVersion(_state.info.version);
     } else {
-      _state.error = 'Other package not allowed (current: "' + pkg.name +
+      _state.error = 'Other package not allowed (current: "' + _state.settings.name +
         '")\n\tuse --patch option to merging with other package!';
     }
-  } else if (!pkg && _state.options.patch) {
+  } else if (!_state.settings.name && _state.options.patch) {
     // se non esiste definizione ed è una patch
     _state.error = 'Nothing to patch!\n\tinstall base package before.';
+  } else {
+    _state.settings.name = _state.info.name;
+    _state.settings.keepVersion(_state.info.version);
   }
   if (_state.isExit()) return cb();
 
-  if (!_state.package.name) {
-    _state.error = 'Undefined package!\n\tuse: '+info.name+' <package> [<options>]';
+  if (!_state.settings.name) {
+    _state.error = 'Undefined package!\n\tuse: ' + info.name + ' <package> [<options>]';
   } else {
-    _state.relpath = path.join(_constants.INSTALL_HERE_FOLDER, _constants.NODE_MODULES_FOLDER, _state.package.name);
+    _state.relpath = path.join(_constants.INSTALL_HERE_FOLDER, _constants.NODE_MODULES_FOLDER, _state.settings.name);
     // console.log('package: %s   >  target: %s', _state.package.name, _state.options.target || 'current directory');
   }
-  if (_state.options.debug) _log(null, 'package: '+JSON.stringify(_state.package));
+  _log('settings: %s', JSON.stringify(_state.settings));
   cb();
 };
 
@@ -259,20 +305,20 @@ exports.checkPackage = function(cb) {
 exports.retrievePackageVersion = function(cb) {
   if (_state.isExit()) return cb();
   var patch = _state.options.patch?' as patch':'';
-  if (!_state.package.version) {
-    var cmd = 'npm view ' + _state.package.name + ' version -g';
-    if (_state.options.debug) console.log('Try to retrieve version: "%s"', cmd);
+  if (!_state.info.version) {
+    var cmd = 'npm view ' + _state.settings.name + ' version -g';
+    _log('Try to retrieve version: %s', cmd);
     cp.exec(cmd, function (err, out) {
       if (out) {
-        _state.package.version = out.trim();
-        console.log('found %s v.%s %s', _state.package.name, _state.package.version, patch);
+        _state.settings.version = u.version(out.trim());
+        console.log('found %s v.%s %s', _state.settings.name, _state.settings.version, patch);
       }
       if (err && _state.options.debug)
         console.error(err);
       cb();
     });
   } else {
-    console.log('installing %s v.%s %s', _state.package.name, _state.package.version, patch);
+    console.log('installing %s v.%s %s', _state.settings.name, _state.settings.version, patch);
     cb();
   }
 };
@@ -280,14 +326,14 @@ exports.retrievePackageVersion = function(cb) {
 // check the package version
 exports.checkVersion = function(cb) {
   if (_state.isExit() || (!_state.options.patch && (_state.options.force || !_state.settings.checkVersion))) return cb();
-  if (_state.package.version && !_state.options.patch) {
-    if (_state.package.version == _state.package.xversion) {
-      _state.exit = ['package "%s" is up-to-date.', _state.package.name];
-    } else if (_state.package.xversion) {
-      console.log('current %s v.%s', _state.package.name, _state.package.xversion);
+  if (_state.settings.version && !_state.options.patch) {
+    if (_state.settings.version == _state.settings._version) {
+      _state.exit = ['package "%s" is up-to-date.', _state.settings.name];
+    } else if (_state.settings._version) {
+      console.log('current %s v.%s', _state.settings.name, _state.settings._version);
     }
   }
-  if (!_state.package.version) {
+  if (!_state.settings.version) {
     _state.error = 'Package version not found!';
   }
   cb();
@@ -299,15 +345,15 @@ exports.checkTest = function(cb) {
   cb();
 };
 
-function _execAction(cmd, cb) {
+function _execAction(cmd, cb, skipErr) {
   if (_state.isExit() || !cmd) return cb();
-  _log(null, 'exec script: '+cmd);
-  var process = cp.exec(cmd, {cwd: _state.root + '/'}, function (err, out) {
-    if (err) _state.error = err;
-    if (out) _log('action output:\n' + out);
+  console.log('exec script: %s', cmd);
+  const process = cp.exec(cmd, {cwd: _state.root + '/'}, function (err, out) {
+    if (err) {skipErr ? console.error(err) : _state.error = err;}
+    if (out) _log('action output:\n%s', out);
     cb();
   });
-  process.on('error', _handleErr(cb));
+  process.on('error', _handleErr(cb, skipErr));
 }
 
 exports.execPre = function(cb) {
@@ -317,14 +363,14 @@ exports.execPre = function(cb) {
 
 exports.execPost = function(cb) {
   if (_state.isExit() || _state.options.patch) return cb();
-  _execAction(_state.settings.xpost, cb);
+  _state.settings._local ? _execAction(_state.settings.xpost, cb, true) : cb();
 };
 
 
 // creates temporary path
 exports.createTempPath = function(cb) {
   if (_state.isExit()) return cb();
-  _log(null, 'creates temporary path');
+  console.log('creates temporary path');
   var temp = path.join(_state.root, _constants.INSTALL_HERE_FOLDER);
   fs.mkdir(temp, function(err){
     if (err) {
@@ -341,7 +387,7 @@ exports.createTempPath = function(cb) {
 exports.deleteTempPath = function(cb) {
   var temp = path.join(_state.root, _constants.INSTALL_HERE_FOLDER);
   if ((!_state.options.debug || _state.force_first) && fs.existsSync(temp)) {
-    _log(null, 'remove temporary path');
+    console.log('remove temporary path');
     _state.force_first = false;
     rimraf(temp, _handleErr(cb));
   } else {
@@ -353,24 +399,25 @@ exports.deleteTempPath = function(cb) {
 // install package
 exports.install = function(cb) {
   if (_state.isExit()) return cb();
-  _log(null, 'installing package...');
+  _log('pre install settings: %s', JSON.stringify(_state.settings, null, 2));
+  console.log('installing package...');
   const verb = _state.options.pack ? 'pack' : 'install';
-  const cmd = 'npm ' + verb + ' ' + _state.package.getInstallName();
-  _log('installing package: ' + cmd);
+  const cmd = 'npm ' + verb + ' ' + _state.settings.getInstallName();
+  _log('installing package: %s', cmd);
   var process = cp.exec(cmd, {cwd: _state.temp + '/'}, function (err, out) {
     if (err) _state.error = err;
-    if (out) _log('install output:\n' + out);
+    if (out) _log('install output:\n%s', out);
     if (_state.options.pack) {
-      _log('extract package: ' + out);
+      _log('extract package: %s', out);
       const pack = path.join(_state.temp, (out || '').trim());
-      const targetp = path.join(_state.temp, _state.package.name);
+      const targetp = path.join(_state.temp, _state.settings.name);
       tar.extract({
         file: pack,
         cwd: _state.temp
       }).then(function() {
         fs.unlinkSync(pack);
         const sourcep = path.join(_state.temp, 'package');
-        _log('rename target folder: ' + sourcep + ' > ' + targetp);
+        _log('rename target folder: %s > %s', sourcep, targetp);
         fs.rename(sourcep, targetp, function(err) {
           if (err) _state.error = err;
           _log('installed.');
@@ -385,16 +432,25 @@ exports.install = function(cb) {
   process.on('error', _handleErr(cb));
 };
 
+exports.checkConfig = function(cb) {
+  if (_state.isExit()) return cb();
+  const fn_config = path.join(_state.temp, _state.settings.name, _state.config);
+  _log('remote config: %s', fn_config);
+  _state.settings._remote = fs.existsSync(fn_config) ? require(fn_config) : null;
+  const fn_package = path.join(_state.temp, _state.settings.name, _constants.PACKAGE_CONFIG);
+  _state.settings._remotePkg = fs.existsSync(fn_package) ? require(fn_package) : null;
+  _state.settings.checkRemote();
+  _log('check config settings: %s', JSON.stringify(_state.settings));
+  cb();
+};
+
 // remove deprecate files & paths
 exports.delete = function(cb) {
   if (_state.isExit()) return cb();
-  const name = _state.package.getInstallName();
-  const fn_config = path.join(_state.temp, name, _state.config);
-  if (fs.existsSync(fn_config)) {
-    var config = require(fn_config);
-    if (_.isString(config.delete)) {
-      _log(null, 'deleting deprecated...');
-      config.delete.split(';').forEach(function(fp){
+  if (_state.settings._remote) {
+    if (_.isString(_state.settings._remote.delete)) {
+      console.log('deleting deprecated...');
+      _state.settings._remote.delete.split(';').forEach(function(fp){
         var pn = path.join(_state.root, fp);
         if (fs.existsSync(pn)) {
           var stat = fs.statSync(pn);
@@ -451,30 +507,31 @@ function _checkPath(f) {
 function _replacePkgFile(f) {
   const nf = f.replace(_state.relpath + path.sep, '');
   if (_state.settings._filters.ignore.check(nf))
-    return _log('Skip file: ' + nf);
+    return _log('Skip file: %s', nf);
 
   _checkPath(nf);
 
   var xdata = null;
   const ispkj = (path.basename(nf) == _constants.PACKAGE_CONFIG);
   if (ispkj && _state.options.patch)
-    return _log('Skip overwriting file: ' + nf);
+    return _log('Skip overwriting file: %s', nf);
   const exists = fs.existsSync(nf);
   if (exists) {
     if (_state.settings._filters.ignoreOverwrite.check(nf))
-      return _log('Skip overwriting file: ' + nf);
+      return _log('Skip overwriting file: %s', nf);
     if (ispkj && !_state.options.skipkg) xdata = fs.readFileSync(nf);
   }
   // legge il file
   var data = fs.readFileSync(f);
-  if (ispkj && xdata) {
+  if (ispkj) {
     data = _state.managePkg(xdata, data);
   } else if (_.isFunction(_state.manageFile)) {
     data = _state.manageFile(data, nf, exists);
   }
-  if (!data) return _log('Skip file: ' + nf);
 
-  _log('replace file: ' + nf);
+  if (!data) return _log('Skip file: %s', nf);
+
+  _log('replace file: %s', nf);
   //elimina il file originale se esiste
   if (exists) fs.unlinkSync(nf);
   //scrive il nuovo file
@@ -488,7 +545,7 @@ function _replaceDepFile(f) {
   if (fs.existsSync(nf)) {
     fs.unlinkSync(nf);
   }
-  _log('replace dependency file: ' + nf);
+  _log('replace dependency file: %s', nf);
   var data = fs.readFileSync(f);
   fs.writeFileSync(nf, data);
   _state.counters.dependencies++;
@@ -515,7 +572,7 @@ function _checkFileList(list) {
       _state.settings._filters.ignorePath.check(relfolder);
     if (skip) {
       var nf = f.replace(_state.relpath + path.sep, '');
-      _log('Skip writing file: ' + nf);
+      _log('Skip writing file: %s', nf);
     }
     return skip;
   });
@@ -524,9 +581,9 @@ function _checkFileList(list) {
 // updates files
 exports.replace = function(cb) {
   if (_state.isExit()) return cb();
-  _log(null, 'updates package files');
+  console.log('updates package files');
   try {
-    _allFiles(_state.files, path.join(_state.temp, _state.package.name));
+    _allFiles(_state.files, path.join(_state.temp, _state.settings.name));
     _checkFileList(_state.files);
     _state.files.forEach(_replacePkgFile);
     cb();
@@ -538,9 +595,9 @@ exports.replace = function(cb) {
 // updates dependencies
 exports.replaceDep = function(cb) {
   if (_state.isExit()) return cb();
-  _log(null, 'updates dependencies files');
+  console.log('updates dependencies files');
   try {
-    _allFiles(_state.dependecies, path.join(_state.temp), path.join(_state.temp, _state.package.name));
+    _allFiles(_state.dependecies, path.join(_state.temp), path.join(_state.temp, _state.settings.name));
     if (!_state.options.patch)
       _state.dependecies.forEach(_replaceDepFile);
     cb();
@@ -561,13 +618,12 @@ exports.checkGitIgnore = function(cb){
 exports.saveSettings = function(cb) {
   if (_state.isExit()) return cb();
   var cnfpath = path.join(_state.root, _state.config);
-  _log('save settings: '+cnfpath);
-  if (!fs.existsSync(cnfpath) || !!_state.options.forceSts) {
-    var ser = _.clone(_state.settings);
-    delete ser._filters;
-    var data = JSON.stringify(ser, null, 2);
-    fs.writeFileSync(cnfpath, data);
-  }
+  _log('save settings: %s', cnfpath);
+  var sc = _.clone(_state.settings);
+  u.sanitize(sc);
+  var data = JSON.stringify(sc, null, 2);
+  fs.writeFileSync(cnfpath, data);
+  _log('settings saved');
   cb();
 };
 
@@ -582,7 +638,7 @@ exports.report = function() {
     }
   } else {
     console.log('Done: \n\t%s v.%s\n\t%d package files updates\n\t%d dependencies files updates',
-      _state.package.name, _state.package.version, _state.counters.files, _state.counters.dependencies);
+      _state.settings.name, _state.settings.version, _state.counters.files, _state.counters.dependencies);
     if (_state.counters.depAddUpd>0)
       console.warn('Dependencies are changed (%d), use "npm install" to update the project!', _state.counters.depAddUpd);
   }
