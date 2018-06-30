@@ -72,8 +72,8 @@ const _state = {
   // gestisce le modifiche al package.json
   managePkg: function(xdata, ndata) {
     try {
-      var npkg = JSON.parse(ndata||'{}');
-      var xpkg = xdata?JSON.parse(xdata):JSON.parse(ndata||'{}');
+      const npkg = JSON.parse(ndata||'{}');
+      const xpkg = xdata?JSON.parse(xdata):JSON.parse(ndata||'{}');
       _managePkg(npkg, xpkg);
       _initPkg(xpkg);
       xdata = JSON.stringify(xpkg, null, 2);
@@ -104,6 +104,7 @@ function _managePkgDeps(spkg, tpkg, deps, check) {
   const target = tpkg[deps]||{};
   _.keys(source).forEach(function(dep){
     if (!!check && !target[dep]) _state.counters.depAddUpd++;
+    _log('[PACKAGE] %s: %s = %s', deps, dep, source[dep]);
     target[dep] = source[dep];
   });
 }
@@ -135,7 +136,7 @@ function _log() {
 }
 
 function _getInfo(name) {
-  var parts = (name||'').split('@');
+  const parts = (name||'').split('@');
   return {
     fullName: name||'',
     name: parts[0],
@@ -149,7 +150,7 @@ function _getRootJson(name) {
 }
 
 var Settings = function() {
-  var self = this;
+  const self = this;
   self.name = '';
   self.version = '';
   self.ignore = '';
@@ -176,9 +177,9 @@ Settings.prototype = {
     return this.name+'@'+this.version;
   },
   checkRemote: function() {
-    var self = this;
+    const self = this;
     _log('remote config content: %s', (self._remote?JSON.stringify(self._remote):'empty'));
-    if (!self._local && self._remote) _.extend(self, self._remote)
+    if (!self._local && self._remote) _.extend(self, self._remote);
     _log('remote package content: %s', (self._remotePkg?JSON.stringify(self._remotePkg):'empty'));
     if (self._remotePkg) {
       self.name = self.name||self._remotePkg.name;
@@ -276,7 +277,7 @@ exports.checkPackage = function(cb) {
   } else if (_state.settings.name && !_state.options.patch) {
     // se il nome del package è stato passato ed esiste già
     // una definizione e non è una patch
-    if (_state.info.name == _state.settings.name) {
+    if (_state.info.name === _state.settings.name) {
       _state.settings.keepVersion(_state.info.version);
     } else {
       _state.error = 'Other package not allowed (current: "' + _state.settings.name +
@@ -327,7 +328,7 @@ exports.retrievePackageVersion = function(cb) {
 exports.checkVersion = function(cb) {
   if (_state.isExit() || (!_state.options.patch && (_state.options.force || !_state.settings.checkVersion))) return cb();
   if (_state.settings.version && !_state.options.patch) {
-    if (_state.settings.version == _state.settings._version) {
+    if (_state.settings.version === _state.settings._version) {
       _state.exit = ['package "%s" is up-to-date.', _state.settings.name];
     } else if (_state.settings._version) {
       console.log('current %s v.%s', _state.settings.name, _state.settings._version);
@@ -512,7 +513,7 @@ function _replacePkgFile(f) {
   _checkPath(nf);
 
   var xdata = null;
-  const ispkj = (path.basename(nf) == _constants.PACKAGE_CONFIG);
+  const ispkj = (path.basename(nf) === _constants.PACKAGE_CONFIG);
   if (ispkj && _state.options.patch)
     return _log('Skip overwriting file: %s', nf);
   const exists = fs.existsSync(nf);

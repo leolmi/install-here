@@ -4,28 +4,38 @@
 Your packages as updatable templates
 
 ## Install
-```
+````
 $ npm install install-here -g
-``` 
+````
 
 ## Use
-Install npm package in folder you want. Launch this command in the folder 
-```
+Install npm package in folder you want:
+launch this command in the project folder
+````
 $ install-here <package> [<options>]
-```
-the package will be downloaded directly in folder, not in node_modules, 
-so you can update it simply reinstalling it (without specifying the name):
-```
+````
+the package will be cloned directly in folder.
+Once the original package has been updated and you want to update yours,
+simply use the command (without specifying the package name):
+````
 $ install-here
-```
+````
+changing options defined in the file:
+````
+install-here.json
+````
+(created by the tool at the first launch) you can skip or manage
+overwriting modes for existing files or folders.
+
+See [USE CASE](https://github.com/leolmi/install-here/blob/master/USECASE.md) for more details.
 
 Similar to a basic [yeoman](http://yeoman.io/) but considering an npm package as template!
 
 ## Options
 Options can be defined using file
-```
+````
 install-here.json
-```
+````
 saved on working directory
 
 - **ignore**
@@ -92,9 +102,9 @@ saved on working directory
 - -xpre, -xpost
 
     pre/post execution script
-    ```
+    ````
     $ install-here <package> --xpost "gulp deploy"
-    ```
+    ````
 
 ## Filename Filters
 

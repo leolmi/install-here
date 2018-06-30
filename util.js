@@ -1,10 +1,10 @@
 'use strict';
-var _ = require('lodash');
-var path = require('path');
+const _ = require('lodash');
+const path = require('path');
 
 
 function _getStep(c) {
-  var step = c._step < c._stack.length ? c._stack[c._step] : null;
+  const step = c._step < c._stack.length ? c._stack[c._step] : null;
   c._step++;
   return step;
 }
@@ -21,7 +21,7 @@ composer.prototype = {
    * @returns {composer}
    */
   use: function(step) {
-    var self = this;
+    const self = this;
     self._stack.push(step);
     return self;
   },
@@ -32,11 +32,11 @@ composer.prototype = {
    */
   run: function(cb) {
     cb = cb || _.noop;
-    var self = this;
+    const self = this;
     self._step = 0;
     if (self._stack.length<=0) return cb();
     (function next() {
-      var step = _getStep(self);
+      const step = _getStep(self);
       if (!step) {
         cb();
       } else if (_.isFunction(step)) {
@@ -51,7 +51,7 @@ composer.prototype = {
 exports.compose = function(execFnName) { return new composer(execFnName); };
 
 function _replace(s, f, r) {
-  var rgx = new RegExp(f, 'g');
+  const rgx = new RegExp(f, 'g');
   return s.replace(rgx, r);
 }
 
@@ -101,7 +101,7 @@ PathFilterItem.prototype = {
     return this.rgx ? this.rgx.test(fn) : false;
   }
 };
-exports.getPathFilterItem = function(filter) { return new PathFilterItem(filter); }
+exports.getPathFilterItem = function(filter) { return new PathFilterItem(filter); };
 
 var PathFilter = function(filter, defaults) {
   filter = filter || '';
@@ -125,7 +125,7 @@ exports.logi = function(m) {
 };
 
 
-exports.getPathFilters = function(filter, defaults) { return new PathFilter(filter, defaults); }
+exports.getPathFilters = function(filter, defaults) { return new PathFilter(filter, defaults); };
 
 exports.version = function (v) {
   return ''+(v.match(/\d+\.\d+\.\d+.*/g)||'');
@@ -133,7 +133,7 @@ exports.version = function (v) {
 
 exports.sanitize = function(o) {
   for (var pn in o) {
-    if (pn&&pn.indexOf('_')==0)
+    if (pn && pn.indexOf('_')===0)
       delete o[pn];
   }
 };
