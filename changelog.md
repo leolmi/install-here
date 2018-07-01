@@ -1,3 +1,6 @@
+## 2.0.2
+- check install-here latest version
+
 ## 1.0.27
 - root package.json without the origin properties _XXXXXX
 

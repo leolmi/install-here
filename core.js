@@ -10,6 +10,7 @@ const info = require('./package.json');
 const tar = require('tar');
 
 const _constants = {
+  INSTALL_HERE: 'install-here',
   INSTALL_HERE_FOLDER: '.install-here',
   NODE_MODULES_FOLDER: 'node_modules',
   INSTALL_HERE_CONFIG: 'install-here.json',
@@ -203,8 +204,9 @@ exports.init = function(a) {
       verbose: a.verbose,
       debug: a.d || a.debug,
       test: a.t || a.test,
-      skipkg: !!a.skipkg,
-      skipgit: !!a.skipgit,
+      skipkg: !!(a.sp || a.skipkg),
+      skipgit: !!(a.sg || a.skipgit),
+      skipvc: !!(a.sv || a.skipvc),
       help: !!(a.h || a.help),
       xpre: a.xpre,
       xpost: a.xpost,
@@ -214,19 +216,20 @@ exports.init = function(a) {
     _state.package = _getRootJson(_constants.PACKAGE_CONFIG)||{};
     _state.info = _getInfo((a._.length > 0) ? a._[0] : null);
     _state.settings = new Settings();
-    _log('settings: %s', JSON.stringify(_state.settings));
+    _log('settings: %s', JSON.stringify(_state.settings, null, 2));
     (cb||_.noop)();
   }
 };
 
-exports.checkInstallHere = function(cb) {
-  //TODO: check the install-here version
-  cb();
-};
+function _lastNpmVersion(name, cb) {
+  const cmd = 'npm view ' + name + ' version -g';
+  _log('Try to retrieve version: %s', cmd);
+  cp.exec(cmd, cb);
+}
 
 exports.checkOptions = function(cb) {
   if (_state.options.help) {
-    var help ='\t'+info.name+' [<package>] [<options>]\n\n'+
+    const help ='\t'+info.name+' [<package>] [<options>]\n\n'+
       '\t<package>\tpackage name (optional)\n'+
       '\t<options>\toptions (optional):\n'+
       '\t\t--version,-v:\tshows version\n'+
@@ -236,21 +239,22 @@ exports.checkOptions = function(cb) {
       '\t\t--debug,-d:\tworks in debug mode\n'+
       '\t\t--patch,-p:\tinstall in patch mode\n'+
       '\t\t--pack,-p:\tinstall pack without dependencies\n'+
-      '\t\t--skipkg:\tskip package.json check\n'+
-      '\t\t--skipgit:\tskip .gitignore check\n'+
+      '\t\t--skipkg,-sp:\tskip package.json check\n'+
+      '\t\t--skipgit,-sg:\tskip .gitignore check\n'+
+      '\t\t--skipvc,-sv:\tskip version check\n'+
       '\t\t--help,-h:\tshows the help\n';
     _state.exit = ['%s v.%s\n%s', info.name, info.version, help];
   } else if (_state.options.version) {
-    var v = u.version(info.version);
-    var rgx =  new RegExp('## '+v+'[\n]*([^#]*)', 'g');
-    var logfile = path.join(__dirname, _constants.CHANGE_LOG);
-    var log = (fs.existsSync(logfile)) ? fs.readFileSync(logfile) : '';
-    var m = rgx.exec(log);
-    var cnglog = _state.options.verbose ? log : (m?m[1]:'');
+    const v = u.version(info.version);
+    const rgx =  new RegExp('## '+v+'[\n]*([^#]*)', 'g');
+    const logfile = path.join(__dirname, _constants.CHANGE_LOG);
+    const log = (fs.existsSync(logfile)) ? fs.readFileSync(logfile) : '';
+    const m = rgx.exec(log);
+    const cnglog = _state.options.verbose ? log : (m?m[1]:'');
     _state.exit = ['%s v.%s \n\n%s', info.name, info.version, cnglog];
   } else if (_state.options.history) {
-    var histfile = path.join(__dirname, _constants.CHANGE_LOG);
-    var hist = (fs.existsSync(histfile)) ? fs.readFileSync(histfile) : '';
+    const histfile = path.join(__dirname, _constants.CHANGE_LOG);
+    const hist = (fs.existsSync(histfile)) ? fs.readFileSync(histfile) : '';
     _state.exit = ['%s version history:\n', info.name, hist.toString()];
   } else {
     console.log('%s v.%s', info.name, info.version);
@@ -258,6 +262,20 @@ exports.checkOptions = function(cb) {
   cb();
 };
 
+// check the install-here version
+exports.checkInstallHere = function(cb) {
+  if (_state.isExit() || _state.options.skipvc) return cb();
+  _lastNpmVersion(_constants.INSTALL_HERE, function(err, out) {
+    if (out) {
+      const new_v = u.version((out||'').trim());
+      const cur_v = u.version(info.version);
+      if (new_v !== cur_v) console.warn('--------------\n>> install-here version %s is now ready!\n--------------', new_v);
+    }
+    if (err && _state.options.debug)
+      console.error(err);
+    cb();
+  });
+};
 
 // check the package name
 exports.checkPackage = function(cb) {
@@ -305,11 +323,9 @@ exports.checkPackage = function(cb) {
 // retrieve remote package version
 exports.retrievePackageVersion = function(cb) {
   if (_state.isExit()) return cb();
-  var patch = _state.options.patch?' as patch':'';
+  const patch = _state.options.patch?' as patch':'';
   if (!_state.info.version) {
-    var cmd = 'npm view ' + _state.settings.name + ' version -g';
-    _log('Try to retrieve version: %s', cmd);
-    cp.exec(cmd, function (err, out) {
+    _lastNpmVersion(_state.settings.name, function (err, out) {
       if (out) {
         _state.settings.version = u.version(out.trim());
         console.log('found %s v.%s %s', _state.settings.name, _state.settings.version, patch);
@@ -372,7 +388,7 @@ exports.execPost = function(cb) {
 exports.createTempPath = function(cb) {
   if (_state.isExit()) return cb();
   console.log('creates temporary path');
-  var temp = path.join(_state.root, _constants.INSTALL_HERE_FOLDER);
+  const temp = path.join(_state.root, _constants.INSTALL_HERE_FOLDER);
   fs.mkdir(temp, function(err){
     if (err) {
       _state.error = err;
@@ -386,7 +402,7 @@ exports.createTempPath = function(cb) {
 
 // remove temporary path
 exports.deleteTempPath = function(cb) {
-  var temp = path.join(_state.root, _constants.INSTALL_HERE_FOLDER);
+  const temp = path.join(_state.root, _constants.INSTALL_HERE_FOLDER);
   if ((!_state.options.debug || _state.force_first) && fs.existsSync(temp)) {
     console.log('remove temporary path');
     _state.force_first = false;
@@ -452,9 +468,9 @@ exports.delete = function(cb) {
     if (_.isString(_state.settings._remote.delete)) {
       console.log('deleting deprecated...');
       _state.settings._remote.delete.split(';').forEach(function(fp){
-        var pn = path.join(_state.root, fp);
+        const pn = path.join(_state.root, fp);
         if (fs.existsSync(pn)) {
-          var stat = fs.statSync(pn);
+          const stat = fs.statSync(pn);
           if (stat.isDirectory()) {
             rimraf(pn, _handleErr(cb));
           } else {
@@ -468,14 +484,14 @@ exports.delete = function(cb) {
 };
 
 function _getRelativeFolder(f) {
-  var folder = path.dirname(f);
+  const folder = path.dirname(f);
   return folder.slice(_state.root.length+1);
 }
 
 // check the path
 function _checkPathX(relfolder, skipCreation) {
   if (!relfolder) return;
-  var parts = relfolder.split(path.sep);
+  const parts = relfolder.split(path.sep);
   var checked = _state.root;
   var checkedParts = '';
   var index = 0;
@@ -499,7 +515,7 @@ function _checkPathX(relfolder, skipCreation) {
 
 // check the file path
 function _checkPath(f) {
-  var relfolder = _getRelativeFolder(f);
+  const relfolder = _getRelativeFolder(f);
   _checkPathX(relfolder);
 }
 
@@ -541,20 +557,20 @@ function _replacePkgFile(f) {
 }
 
 function _replaceDepFile(f) {
-  var nf = path.join(_state.root, path.join(_constants.NODE_MODULES_FOLDER, path.relative(_state.temp, f)));
+  const nf = path.join(_state.root, path.join(_constants.NODE_MODULES_FOLDER, path.relative(_state.temp, f)));
   _checkPath(nf);
   if (fs.existsSync(nf)) {
     fs.unlinkSync(nf);
   }
   _log('replace dependency file: %s', nf);
-  var data = fs.readFileSync(f);
+  const data = fs.readFileSync(f);
   fs.writeFileSync(nf, data);
   _state.counters.dependencies++;
 }
 
 function _allFiles(list, folder, ignore) {
   fs.readdirSync(folder).forEach(function(f) {
-    var fn = path.join(folder, f);
+    const fn = path.join(folder, f);
     if (fs.statSync(fn).isDirectory()) {
       if (!ignore || fn.indexOf(ignore)<0)
         _allFiles(list, fn);
@@ -566,13 +582,13 @@ function _allFiles(list, folder, ignore) {
 
 function _checkFileList(list) {
   _.remove(list, function (f) {
-    var relfolder = _getRelativeFolder(f);
-    var checkedParts = _checkPathX(relfolder);
-    var skip = checkedParts &&
+    const relfolder = _getRelativeFolder(f);
+    const checkedParts = _checkPathX(relfolder);
+    const skip = checkedParts &&
       _state.settings._filters.ignorePath.check(checkedParts) &&
       _state.settings._filters.ignorePath.check(relfolder);
     if (skip) {
-      var nf = f.replace(_state.relpath + path.sep, '');
+      const nf = f.replace(_state.relpath + path.sep, '');
       _log('Skip writing file: %s', nf);
     }
     return skip;
@@ -609,7 +625,7 @@ exports.replaceDep = function(cb) {
 
 exports.checkGitIgnore = function(cb){
   if (_state.isExit()) return cb();
-  var gtipath = path.join(_state.root, _constants.GIT_IGNORE_FILE);
+  const gtipath = path.join(_state.root, _constants.GIT_IGNORE_FILE);
   if (!fs.existsSync(gtipath) && _state.options.skipgit!==true) {
     fs.writeFileSync(gtipath, _constants.GIT_IGNORE);
   }
@@ -618,11 +634,11 @@ exports.checkGitIgnore = function(cb){
 
 exports.saveSettings = function(cb) {
   if (_state.isExit()) return cb();
-  var cnfpath = path.join(_state.root, _state.config);
+  const cnfpath = path.join(_state.root, _state.config);
   _log('save settings: %s', cnfpath);
-  var sc = _.clone(_state.settings);
+  const sc = _.clone(_state.settings);
   u.sanitize(sc);
-  var data = JSON.stringify(sc, null, 2);
+  const data = JSON.stringify(sc, null, 2);
   fs.writeFileSync(cnfpath, data);
   _log('settings saved');
   cb();

@@ -8,8 +8,8 @@ const a = require('yargs').argv;
 
 u.compose()
   .use(ih.init(a))
-  .use(ih.checkInstallHere)
   .use(ih.checkOptions)
+  .use(ih.checkInstallHere)
   .use(ih.checkPackage)
   .use(ih.retrievePackageVersion)
   .use(ih.checkVersion)
