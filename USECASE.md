@@ -19,6 +19,7 @@ on a git repository:
 ````
 https://github.com/myname/my-project
 ````
+published as `my-project`.
 
 First of all install install-here globally:
 ````
