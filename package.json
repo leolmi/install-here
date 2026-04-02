@@ -1,6 +1,6 @@
 {
   "name": "install-here",
-  "version": "2.0.2",
+  "version": "3.0.1",
   "description": "Use an npm package as updatable application template. Install the package with all dependencies in a specific folder and keep it updated with the same command.",
   "homepage": "https://github.com/leolmi/install-here",
   "license": "MIT",
@@ -31,12 +31,12 @@
     "util.js"
   ],
   "engines": {
-    "node": ">=0.10.0"
+    "node": ">=18"
   },
   "dependencies": {
-    "lodash": "^4.17.4",
-    "rimraf": "^2.6.0",
-    "tar": "^4.0.1",
-    "yargs": "^7.0.1"
+    "lodash": "^4.17.21",
+    "rimraf": "^3.0.2",
+    "tar": "^7.5.13",
+    "yargs": "^15.4.1"
   }
 }
